@@ -71,8 +71,13 @@ local typeConstructors: {[string]: (any) -> {number}} = {
 	end,
 	
 	["table"] = function(tbl: {any}): {number}
+		local first: any = tbl[1]
+		if not first then
+			return {}
+		end
+		
 		assert(
-			typeof(tbl[1]) == "number",
+			typeof(first) == "number",
 			"attempt to create BigInteger from a table with non-int values"
 		)
 		
@@ -80,7 +85,7 @@ local typeConstructors: {[string]: (any) -> {number}} = {
 	end,
 
 	["nil"] = function(_: nil): {number}
-		return {0}
+		return {}
 	end,
 }
 
@@ -234,51 +239,43 @@ function BigInteger:SubtractRaw(subrahend: BigInteger): BigInteger
 end
 
 function BigInteger:MultiplyRaw(factor: BigInteger)
-	if not (#self < KARATSUBA_THRESHOLD or #factor < KARATSUBA_THRESHOLD) then
+	local selfDigits: number = #self
+	local factorDigits: number = #factor
+	
+	if selfDigits > KARATSUBA_THRESHOLD or factorDigits > KARATSUBA_THRESHOLD then
 		return MultiplyKaratsuba(self, factor)
 	end
-	
-	local xlen = #self
-	local ylen = #factor
-	
+
 	local result: BigInteger = BigInteger.new()
-	local LONG_MASK = 0xFFFFFFFF
-
-	local xstart = xlen
-	local ystart = ylen
-
-	-- first outer iteration
-	local carry = 0
-	local i = xstart
-	for j = ystart, 1, -1 do
-		local k = j + i
-		local product =
-			band(self[i], LONG_MASK) *
-			band(factor[j], LONG_MASK) +
-			carry
-
-		result[k] = band(product, LONG_MASK)
-		carry = rshift(product, 32)
-	end
-	result[i] = carry
-
-	-- remaining outer iterations
-	for i = xstart - 1, 1, -1 do
-		carry = 0
-		for j = ystart, 1, -1 do
-			local k = j + i
-
-			local product =
-				band(self[i], LONG_MASK) *
-				band(factor[j], LONG_MASK) +
-				band(result[k], LONG_MASK) +
-				carry
-
-			result[k] = band(product, LONG_MASK)
-			carry = rshift(product, 32)
+	
+	-- do normal o(n^2) multiplication
+	for i: number = 1, selfDigits do
+		local digit: number = self[i]
+		local carry: number = 0
+		local prependedZeros: number = i - 1
+		
+		local mulResult: BigInteger = BigInteger.new(tcreate(prependedZeros, 0)) -- prepend zeros
+		
+		for j: number = 1, factorDigits do
+			local factorDigit: number = factor[j]
+			local mul: number = digit * factorDigit + carry
+			
+			if mul > 9 then
+				carry = mul // 10
+				mul = mul % 10
+			else
+				carry = 0
+			end
+			
+			mulResult[j + prependedZeros] = mul
 		end
-
-		result[i] = carry
+		
+		if carry > 0 then
+			local last: number? = mulResult[#mulResult + 1]
+			mulResult[#mulResult + 1] = (last and last + carry or carry)
+		end
+		
+		result += mulResult
 	end
 
 	return result
@@ -305,13 +302,13 @@ function BigInteger:LeftShift(bits: number): BigInteger
 	local digits: number = #(self :: BigInteger)
 	
 	local result: BigInteger = BigInteger.new()
-
+	
 	if nBits == 0 then
 		return self
 	end
 	
 	local i: number = 0
-	local highBits: number = rshift(result[0], MAX_BIT32_POW - nBits)
+	local highBits: number = rshift(result[1], MAX_BIT32_POW - nBits)
 	local numIter: number = digits - 1
 
 	local shiftCount: number = MAX_BIT32_POW - nBits;
