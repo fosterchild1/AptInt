@@ -14,6 +14,7 @@ export type BigInteger = setmetatable<{
 	read __unm: (self: BigInteger) -> BigInteger,
 	read __add: (self: BigInteger, summand: BigInteger | number) -> BigInteger,
 	read __sub: (self: BigInteger, subrahend: BigInteger | number) -> BigInteger,
+	read __eq: (self: BigInteger, num: BigInteger) -> boolean,
 	read __tostring: (self: BigInteger) -> string,
 	read __len: (self: BigInteger) -> number,
 	
@@ -24,6 +25,7 @@ export type BigInteger = setmetatable<{
 	read AddRaw: (self: BigInteger, summand: BigInteger) -> BigInteger,
 	read SubtractRaw: (self: BigInteger, subrahend: BigInteger) -> BigInteger,
 	read MultiplyRaw: (self: BigInteger, factor: BigInteger) -> BigInteger,
+	read EqualsRaw: (self: BigInteger, num: BigInteger) -> boolean,
 	read ToStringRaw: (self: BigInteger) -> string
 	
 }, typeof(BigInteger)>
@@ -44,8 +46,7 @@ local tinsert: <V>({V}, V) -> () & <V>({V}, number, V) -> () = table.insert
 local tremove = table.remove
 
 local KARATSUBA_THRESHOLD: number = 5 -- in digits
-local MAX_LOSSLESS_POW: number = 53
-local MAX_BIT32_POW: number = 30 -- Bit32 only works from -2^31 to 2^31, anything over that and it overflows
+local MAX_LOSSLESS_POW: number = 53 -- 2^53
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
@@ -132,7 +133,7 @@ local function ArgumentToBigInteger(num: number | BigInteger, errContext: string
 end
 
 -- Split a digit into its low "d" digits and its high digits. For example, split_at(12345, 3) 
---will extract the 3 final digits, giving: high=12, low=345.
+-- will extract the 3 final digits, giving: high=12, low=345.
 local function GetKaratsubaLower(int: BigInteger, n: number): BigInteger
 	local new: {number} = {}
 	local digits: {number} = int.digits
@@ -169,6 +170,7 @@ local function MultiplyKaratsuba(x: BigInteger, y: BigInteger): BigInteger
 	local z2: BigInteger = high1:MultiplyRaw(high2)
 
 	-- (z2 × BASE ^ (m2 × 2)) + ((z1 - z2 - z0) × BASE ^ m2) + z0
+	-- since base is 10, we can just prepend zeros to avoid slow exponentiation
 	local result = z2:LeftShift(m2 * 2)
 		:AddRaw(
 			(z1:SubtractRaw(z2):SubtractRaw(z0)):LeftShift(m2)
@@ -192,7 +194,8 @@ end
 --> METATABLE FUNCTIONS
 -- ====================
 
-function BigInteger.new(num: any): BigInteger
+-- Returns a new BigInteger from given argument
+function BigInteger.new(num: string | number | {number}?): BigInteger
 	local digits: {number}, signum: number = typeConstructors[typeof(num)](num)
 	
 	return setmetatable({
@@ -201,6 +204,7 @@ function BigInteger.new(num: any): BigInteger
 	}, BigInteger) :: BigInteger
 end
 
+-- Returns a new BigInteger with its sign flipped.
 function BigInteger:Negate(): BigInteger
 	local result: BigInteger = BigInteger.new(self.digits)
 	result.signum = -result.signum
@@ -212,6 +216,7 @@ end
 --> ARITHMETIC FUNCTIONS
 -- =====================
 
+-- Returns a new BigInteger = x, where self + summand: BigInteger = x
 function BigInteger:AddRaw(summand: BigInteger): BigInteger
 	local selfSign: number, summandSign: number = self.signum, summand.signum
 	
@@ -253,7 +258,7 @@ function BigInteger:AddRaw(summand: BigInteger): BigInteger
 	
 	return result
 end
-
+-- Returns a new BigInteger = x, where self - subrahend: BigInteger = x
 function BigInteger:SubtractRaw(subrahend: BigInteger): BigInteger
 	if subrahend.signum == 0 then
 		return self
@@ -283,6 +288,7 @@ function BigInteger:SubtractRaw(subrahend: BigInteger): BigInteger
 	return result
 end
 
+-- Returns a BigInteger = x, where self * factor: BigInteger = x
 function BigInteger:MultiplyRaw(factor: BigInteger)
 	local selfSign: number, factorSign: number = self.signum, factor.signum
 	
@@ -339,6 +345,7 @@ function BigInteger:MultiplyRaw(factor: BigInteger)
 	return result
 end
 
+-- Returns a new string representation of a BigInteger
 function BigInteger:ToStringRaw(): string
 	local str: string = (self.signum ~= 0 and self.signum == -1 and "-" or "")
 	
@@ -356,7 +363,8 @@ end
 --> COMPARISON FUNCTIONS
 -- ==================
 
-function BigInteger:EqualsRaw(num: BigInteger)
+-- Returns true if self == num, false if not.
+function BigInteger:EqualsRaw(num: BigInteger): boolean
 	if (#self :: BigInteger) ~= #num then
 		return false
 	end
@@ -371,11 +379,12 @@ function BigInteger:EqualsRaw(num: BigInteger)
 end
 
 -- ==================
---> BOOLEAN FUNCTIONS
+--> "BOOLEAN" FUNCTIONS
 -- ==================
 
+-- Returns a new BigInteger = x, where self * 10^digits = x
 function BigInteger:LeftShift(digits: number)
-	local result = BigInteger.new(self)
+	local result = BigInteger.new(self.digits)
 	
 	local tbl: {number} = result.digits
 	
@@ -406,8 +415,8 @@ BigInteger.__sub = function(self: BigInteger, subrahend: number | BigInteger): B
 	return self:SubtractRaw(bigint)
 end
 
-BigInteger.__eq = function(self: BigInteger, num: BigInteger): BigInteger
-	local bigint: BigInteger = ArgumentToBigInteger(subrahend, "sub")
+BigInteger.__eq = function(self: BigInteger, num: BigInteger): boolean
+	local bigint: BigInteger = ArgumentToBigInteger(num, "sub")
 
 	return self:EqualsRaw(bigint)
 end
