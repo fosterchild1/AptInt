@@ -31,9 +31,8 @@ export type BigInteger = setmetatable<{
 	read __tostring: (n: BigInteger) -> string,
 	read __len: (n: BigInteger) -> number,
 	
-	read Negate: (n: BigInteger) -> BigInteger,
-	read InPlaceNegate: (n: BigInteger) -> BigInteger,
-	
+	read Negate: (n: BigInteger, inPlace: boolean) -> BigInteger,
+
 	read ShiftLeft: (n: BigInteger, digits: number) -> BigInteger,
 	
 	read AddRaw: (term: BigInteger, term: BigInteger) -> BigInteger,
@@ -204,7 +203,7 @@ local function MultiplyKaratsuba(x: BigInteger, y: BigInteger): BigInteger
 		:AddRaw(z0)
 	
 	if x.signum ~= y.signum then
-		return result:InPlaceNegate()
+		return result:Negate(true)
 	end
 	
 	return result
@@ -231,19 +230,17 @@ function BigInteger.new(num: string | number | {number}?): BigInteger
 end
 
 -- Returns a new BigInteger with its sign flipped.
-function BigInteger:Negate(): BigInteger
+function BigInteger:Negate(inPlace: boolean): BigInteger
+	if inPlace then
+		self.signum = -self.signum
+		return self
+	end
+	
 	local result: BigInteger = BigInteger.new(self.digits)
 	result.signum = -(self :: BigInteger).signum
 	
 	return result
 end
-
--- Flips the sign of the BigInteger in-place.
-function BigInteger:InPlaceNegate()
-	self.signum = -self.signum
-	return self
-end
-
 -- =====================
 --> ARITHMETIC FUNCTIONS
 -- =====================
@@ -257,9 +254,9 @@ function BigInteger:AddRaw(term: BigInteger): BigInteger
 	if summandSign == 0 then
 		return self
 	elseif selfSign == -1 and summandSign == 1 then
-		return (self:Negate():SubtractRaw(term)):InPlaceNegate()
+		return (self:Negate(false):SubtractRaw(term)):Negate(true)
 	elseif not sameSign then -- +a+(-b)=a-b
-		return self:SubtractRaw(term:Negate())
+		return self:SubtractRaw(term:Negate(true))
 	end
 	
 	local result: BigInteger = BigInteger.new()
@@ -301,13 +298,13 @@ function BigInteger:SubtractRaw(term: BigInteger): BigInteger
 	if termSign == 0 then
 		return self
 	elseif termSign == -1 and selfSign == 1 then
-		return term:Negate():AddRaw(self)
+		return term:Negate(false):AddRaw(self)
 	elseif sameSign and selfSign == -1 then -- (-a-(-b)) b-a
-		return (self:Negate():SubtractRaw(term:Negate())):InPlaceNegate()
+		return (self:Negate(false):SubtractRaw(term:Negate(false))):Negate(true)
 	end
 	
 	if self:LowerThanRaw(term) then
-		return term:SubtractRaw(self):InPlaceNegate()
+		return term:SubtractRaw(self):Negate(true)
 	end
 	
 	local result: BigInteger = BigInteger.new()
@@ -517,7 +514,7 @@ end
 BigInteger.__unm = function(num: ValidConstructor): BigInteger
 	local bigint: BigInteger = ArgumentToBigInteger(num, "unm")
 	
-	return bigint:Negate()
+	return bigint:Negate(false)
 end
 
 BigInteger.__add = function(a: ValidConstructor, b: ValidConstructor): BigInteger
