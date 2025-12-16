@@ -66,6 +66,8 @@ local tcreate = table.create
 local tinsert: <V>({V}, V) -> () & <V>({V}, number, V) -> () = table.insert
 local tremove = table.remove
 
+local sformat: (string, ...unknown) -> string = string.format
+
 -- ==========
 --> CONSTANTS
 -- ==========
@@ -84,11 +86,11 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 		
 		local i: number = #str
 		repeat
-			local chars: string = str:sub(math.max(i - BASE_POW + 2, 1), i)
+			local chars: string = str:sub(math.max(i - BASE_POW + 1, 1), i)
 			local num: number? = tonumber(chars)
 			if not num then break end
 			
-			i -= BASE_POW - 1
+			i -= BASE_POW
 			tinsert(arr, num)
 		until i < (isNegative and 2 or 1)
 		
@@ -259,7 +261,7 @@ function BigInteger:AddRaw(term: BigInteger): BigInteger
 	local result: BigInteger = BigInteger.new()
 	
 	-- largest
-	local limbsToAdd: number = (#(self :: BigInteger) > #term and #(self :: BigInteger) or #term)
+	local limbsToAdd: number = math.max(#self, #term)
 	
 	local limbsSummand: {number}, limbsSelf: {number} = term.limbs, self.limbs
 	
@@ -274,6 +276,7 @@ function BigInteger:AddRaw(term: BigInteger): BigInteger
 			print(carry, sum)
 		else
 			carry = 0
+			print("r")
 		end
 		
 		result.limbs[i] = sum
@@ -397,7 +400,7 @@ function BigInteger:ToString(): string
 
 	--> from left to right
 	for i: number = #limbs, 1, -1 do
-		str ..= tostring(limbs[i])
+		str ..= sformat("%06d", limbs[i]) -- prepend dem zeros
 	end
 
 	return str
