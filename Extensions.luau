@@ -18,8 +18,8 @@ local BigInteger = require(script.Parent)
 type BigInteger = BigInteger.BigInteger
 
 export type Extensions = {
-	read Abs: (n: BigInteger) -> BigInteger,
-	read AbsInPlace: (n: BigInteger) -> BigInteger
+	read Abs: (n: BigInteger, inPlace: boolean) -> BigInteger,
+	read IsEven: (n: BigInteger) -> boolean,
 }
 
 BigInteger.Extend(function(tbl: typeof(BigInteger) | any)
@@ -29,15 +29,17 @@ BigInteger.Extend(function(tbl: typeof(BigInteger) | any)
 			return self
 		end
 		
-		local result = BigInteger.new(self)
-		result.signum = (result.signum > -1 and result.signum or 1)
-
+		local result = BigInteger.clone(self)
+		result.signum = -result.signum
 		return result
 	end
 	
 	function tbl:IsEven(): boolean
-		return (self :: BigInteger).digits[1] % 2 == 0
+		return (self :: BigInteger).limbs[1] % 2 == 0
 	end
+	
+	tbl.zero = BigInteger.new()
+	tbl.one = BigInteger.new({1})
 end)
 
 return {}
