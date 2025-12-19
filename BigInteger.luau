@@ -49,6 +49,8 @@ local log10: (number) -> number = math.log10
 local floor: (number) -> number = math.floor
 local ceil: (number) -> number = math.ceil
 local max: (number) -> number = math.max
+local abs: (number) -> number = math.abs
+local round: (number) -> number = math.round
 local sign: (number) -> number = math.sign
 
 local tcreate: <V>(number, V?) -> {V} = table.create
@@ -413,23 +415,51 @@ function BigInteger:MultiplyRaw(factor: BigInteger): BigInteger
 	return result
 end
 
--- Returns a BigInteger = x, whose value is equal to a / b.
+-- Returns the quotient and remainder of a / b.
 function BigInteger:DivideRaw(divisor: BigInteger): (BigInteger, BigInteger)
-	if divisor.signum == 0 or self.signum == 0 then
+	local divSign: number, selfSign: number = divisor.signum, self.signum
+	local sameSign: boolean = divSign == selfSign
+	
+	--> CASES
+	
+	--> avoid clone
+	self.signum = abs(selfSign)
+	divisor.signum = abs(divSign)
+	
+	if divSign == 0 or selfSign == 0 then -- dividing by 0
 		return BigInteger.new(), BigInteger.new()
+	elseif self:LowerThanRaw(divisor) then
+		return BigInteger.new(), BigInteger.new()
+	elseif self:EqualsRaw(divisor) then -- dividing x/x = 1
+		return BigInteger.new({1}), BigInteger.new({1})
 	end
 	
+	self.signum = selfSign
+	divisor.signum = divSign
+	
 	local U: {number}, V: {number} = self.limbs, divisor.limbs
+	if #U == 1 and #V == 1 then -- single limb division
+		local mod: number = U[1] % V[1]
+		local q: number = round(U[1] * selfSign / V[1] * divSign)
+		return BigInteger.new({q}), BigInteger.new({mod})
+	end
+	
+	local divisorSinglelimb: boolean = #V == 1
 
 	--> d0. defs
 	local n: number = #V
 	local m: number = #U - n
 	
 	--> d1. normalize
-	local D: number = BASE // (V[#V] + 1)
-	local Dint: BigInteger = BigInteger.new(D)
-	local Vn: {number} = divisor:MultiplyRaw(Dint).limbs
-	local Un: {number} = self:MultiplyRaw(Dint).limbs
+	local Vn: {number}, Un: {number}, D: number?
+	if divisorSinglelimb then
+		Un, Vn = (self :: BigInteger):clone().limbs, {divisor.limbs[1]}
+	else
+		D = BASE // (V[#V] + 1)
+		local Dint: BigInteger = BigInteger.new(D)
+		Vn = divisor:MultiplyRaw(Dint).limbs
+		Un = (self :: BigInteger):MultiplyRaw(Dint).limbs
+	end
 	
 	local Vnn: number = Vn[n]
 	local penultimateVn: number = Vn[n-1] or 0
@@ -451,7 +481,13 @@ function BigInteger:DivideRaw(divisor: BigInteger): (BigInteger, BigInteger)
 		if qhat == 0 then continue end
 		
 		--> first correction
-		if qhat * penultimateVn > rhat * BASE + (Un[nPlusJ - 2] or 0) then
+		if divisorSinglelimb then
+			while (qhat >= BASE) or (qhat * (V[n - 1] or 0) > rhat * BASE + (U[nPlusJ - 2] or 0)) do
+				qhat -= 1
+				rhat += Vnn
+				if rhat >= BASE then break end
+			end
+		elseif qhat * penultimateVn > rhat * BASE + (Un[nPlusJ - 2] or 0) then
 			qhat -= 1
 			rhat += Vnn
 
@@ -482,27 +518,28 @@ function BigInteger:DivideRaw(divisor: BigInteger): (BigInteger, BigInteger)
 		Un[nPlusJ] = lastSub
 
 		--> d6. add back
-		if lastSub < 0 then
-			quotient.limbs[j + 1] = qhat - 1
-			local carry: number = 0
-			
-			for i: number = 1, n do
-				local sum: number = Un[i + j] + Vn[i] + carry
-
-				if sum >= BASE then
-					carry = 1
-					sum = sum - BASE
-				else
-					carry = 0
-				end
-
-				Un[i + j] = sum
-			end
-			
-			Un[nPlusJ] = (Un[nPlusJ] + carry) % BASE
-		else
+		if lastSub >= 0 then
 			quotient.limbs[j + 1] = qhat
+			continue
 		end
+		
+		quotient.limbs[j + 1] = qhat - 1
+		local carry: number = 0
+
+		for i: number = 1, n do
+			local sum: number = Un[i + j] + Vn[i] + carry
+
+			if sum >= BASE then
+				carry = 1
+				sum = sum - BASE
+			else
+				carry = 0
+			end
+
+			Un[i + j] = sum
+		end
+
+		Un[nPlusJ] = (Un[nPlusJ] + carry) % BASE
 	end
 	
 	local remainder: BigInteger = BigInteger.new(Un)
@@ -510,15 +547,17 @@ function BigInteger:DivideRaw(divisor: BigInteger): (BigInteger, BigInteger)
 	StripLeadingZeros(quotient)
 	
 	--> d8. unnormalize
-	local carry: number = 0
-	local rmLimbs: {number} = remainder.limbs
-	for i: number = #rmLimbs, 1, -1 do
-		local x = carry * BASE + rmLimbs[i]
-		rmLimbs[i] = x // D
-		carry = x % D
+	if not divisorSinglelimb then
+		local carry: number = 0
+		local rmLimbs: {number} = remainder.limbs
+		for i: number = #rmLimbs, 1, -1 do
+			local x: number = carry * BASE + rmLimbs[i]
+			rmLimbs[i] = x // D :: number
+			carry = x % D :: number
+		end
 	end
 	
-	if divisor.signum ~= self.signum then
+	if divSign ~= selfSign then
 		return quotient:Negate(true), remainder
 	end
 
