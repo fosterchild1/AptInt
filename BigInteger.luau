@@ -32,7 +32,7 @@ export type BigInteger = setmetatable<{
 	read AddRaw: (term: BigInteger, term: BigInteger) -> BigInteger,
 	read SubtractRaw: (term: BigInteger, term: BigInteger) -> BigInteger,
 	read MultiplyRaw: (factor: BigInteger, factor: BigInteger) -> BigInteger,
-	read DivideRaw: (divisor: BigInteger) -> BigInteger,
+	read DivideRaw: (divisor: BigInteger) -> (BigInteger, BigInteger),
 	
 	read EqualsRaw: (self: BigInteger, num: BigInteger) -> boolean,
 	read LowerThanRaw: (self: BigInteger, num: BigInteger) -> boolean,
@@ -54,6 +54,7 @@ local sign: (number) -> number = math.sign
 local tcreate: <V>(number, V?) -> {V} = table.create
 local tinsert: <V>({V}, V) -> () & <V>({V}, number, V) -> () = table.insert
 local tremove: <V>({V}, number?) -> V? = table.remove
+local tclone: <T>({T}) -> {T} = table.clone
 
 local sformat: (string, ...unknown) -> string = string.format
 
@@ -62,7 +63,7 @@ local sformat: (string, ...unknown) -> string = string.format
 -- ==========
 
 local KARATSUBA_THRESHOLD: number = 300 -- in limbs, limit where karatsuba is faster than normal multiplication
-local SAFE_UNPACK_THRESHOLD: number = 8000 -- unpack() max size
+local SAFE_UNPACK_THRESHOLD: number = 8000 -- unpack() max size in limbs
 
 local MAX_LOSSLESS_POW: number = 53 -- 2^53
 local MAX_LOSSLESS_INT: number = 2^MAX_LOSSLESS_POW-1
@@ -154,6 +155,12 @@ end
 local function GetKaratsubaLower(int: BigInteger, n: number): BigInteger
 	local limbs: {number} = int.limbs
 	
+	--> unsure if this is faster.
+	if #limbs < SAFE_UNPACK_THRESHOLD then
+		-- table.pack is faster here but FOR SOME REASON IT INCLUDES ["N"] IN THE ARRAY TOO?!
+		return BigInteger.new({unpack(limbs, 1, n)})
+	end
+	
 	local result: BigInteger = BigInteger.new(tcreate(n, 0))
 	local resultlimbs: {number} = result.limbs
 	
@@ -165,12 +172,11 @@ local function GetKaratsubaLower(int: BigInteger, n: number): BigInteger
 end
 
 local function GetKaratsubaUpper(int: BigInteger, n: number): BigInteger
-	-- {(select(#limbs - n + 1, unpack(x))} is faster, but unpack only works up to a certain degree.
-	
+	-- {select(unpack(x))} is faster, but unpack only works up to a certain degree.
 	local limbs: {number} = int.limbs
 
 	if #limbs < SAFE_UNPACK_THRESHOLD then
-		-- table.pack is faster here but FOR SOME REASON IT INCLUDES ["N"] IN THE ARRAY TOO?!
+		-- select(n + 1, unpack(limbs)) is wayy faster than {unpack(limbs, n+1, #limbs)}
 		return BigInteger.new({
 			select(n + 1, unpack(limbs)) :: number
 		})
@@ -215,6 +221,10 @@ local function StripLeadingZeros(bigint: BigInteger)
 	while #bigint > 1 and bigint.limbs[#bigint] == 0 do
 		tremove(bigint.limbs, #bigint.limbs)
 	end
+	
+	if #bigint.limbs == 0 then
+		bigint.signum = 0
+	end
 end
 
 -- ====================
@@ -234,7 +244,7 @@ end
 -- Returns a copy of the BigInteger.
 function BigInteger.clone(n: BigInteger): BigInteger
 	return setmetatable({
-		limbs = n.limbs,
+		limbs = tclone(n.limbs),
 		signum = n.signum
 	}, BigInteger) :: BigInteger
 end
@@ -368,7 +378,6 @@ function BigInteger:MultiplyRaw(factor: BigInteger): BigInteger
 		local prependedZeros: number = i - 1
 		
 		local mulResult: BigInteger = BigInteger.new(tcreate(prependedZeros + #factorlimbs, 0))
-		mulResult.signum = 1
 		
 		for j: number, factorDigit: number in factorlimbs do
 			local mul: number = digit * factorDigit + carry
@@ -405,24 +414,27 @@ function BigInteger:MultiplyRaw(factor: BigInteger): BigInteger
 end
 
 -- Returns a BigInteger = x, whose value is equal to a / b.
-function BigInteger:DivideRaw(divisor: BigInteger): BigInteger
+function BigInteger:DivideRaw(divisor: BigInteger): (BigInteger, BigInteger)
 	if divisor.signum == 0 or self.signum == 0 then
-		return BigInteger.new()
+		return BigInteger.new(), BigInteger.new()
 	end
-
-	--print(self, divisor)
-	local U: {number}, V: {number} = (self :: BigInteger).limbs, divisor.limbs
+	
+	local U: {number}, V: {number} = self.limbs, divisor.limbs
 
 	--> d0. defs
 	local n: number = #V
 	local m: number = #U - n
 	
-	local Vn: number = V[n]
+	--> d1. normalize
+	local D: number = BASE // (V[#V] + 1)
+	local Dint: BigInteger = BigInteger.new(D)
+	local Vn: {number} = divisor:MultiplyRaw(Dint).limbs
+	local Un: {number} = self:MultiplyRaw(Dint).limbs
+	
+	local Vnn: number = Vn[n]
+	local penultimateVn: number = Vn[n-1] or 0
 
 	local quotient: BigInteger = BigInteger.new(tcreate(m + 1, 0))
-
-	--> we dont need to normalize because we arent limited by 32/64 bit math
-	local D: BigInteger = BigInteger.new(BASE // (Vn + 1))
 	
 	--> d2. init j
 	local qhat: number, rhat: number = 0, 0
@@ -432,54 +444,85 @@ function BigInteger:DivideRaw(divisor: BigInteger): BigInteger
 		-- bigints for qhat and rhat are not needed, because un[x] is at most BASE
 		-- currently, BASE * BASE + BASE < 2^53
 		local nPlusJ: number = n + j + 1
-		local top: number = (U[nPlusJ] or 0) * BASE + (U[nPlusJ - 1] or 0)
-		qhat = top // Vn
-		rhat = top % Vn
-
-		--> correction here
-		while (qhat >= BASE) or (qhat * (V[n - 1] or 0) > rhat * BASE + (U[nPlusJ - 2] or 0)) do
+		local top: number = (Un[nPlusJ] or 0) * BASE + (Un[nPlusJ - 1] or 0)
+		qhat = top // Vnn
+		rhat = top % Vnn
+		
+		if qhat == 0 then continue end
+		
+		--> first correction
+		if qhat * penultimateVn > rhat * BASE + (Un[nPlusJ - 2] or 0) then
 			qhat -= 1
-			rhat += Vn
-			if rhat >= BASE then break end
+			rhat += Vnn
+
+			--> second correction
+			if rhat < BASE and qhat * penultimateVn > rhat * BASE + (Un[nPlusJ - 2] or 0) then
+				qhat -= 1
+			end
 		end
 
-		--> d4. multiply & subtract	
-		local k: number = 0
-		local t: number = 0
+		--> d4. multiply & subtract
+		local borrow: number = 0
 		for i: number = 1, n do
-			local IplusJ: number = i + j
-			local p: number = qhat * V[i]
-			local t: number = U[IplusJ] - k - p % BASE
+			local p: number = qhat * Vn[i] + borrow
+			local digitP: number = p % BASE
+
+			local sub: number = Un[i + j] - digitP
+			if sub < 0 then
+				sub = sub + BASE
+				borrow = 1
+			else
+				borrow = 0
+			end
 			
-			U[IplusJ] = t % BASE
-			k = p // BASE + (t < 0 and 1 or 0)
+			Un[i + j] = sub
 		end
 
-		t = (U[nPlusJ] or 0) - k
-		U[nPlusJ] = t
+		local lastSub: number = (Un[nPlusJ] or 0) - borrow
+		Un[nPlusJ] = lastSub
 
-		--> d5. test reminder
-		quotient.limbs[j + 1] = qhat
-		if t >= 0 then continue end
+		--> d6. add back
+		if lastSub < 0 then
+			quotient.limbs[j + 1] = qhat - 1
+			local carry: number = 0
+			
+			for i: number = 1, n do
+				local sum: number = Un[i + j] + Vn[i] + carry
 
-		--> d6
-		quotient.limbs[j + 1] -= 1
-		k = 0
-		for i: number = 1, n do
-			t = U[i + j] + V[i] + k
+				if sum >= BASE then
+					carry = 1
+					sum = sum - BASE
+				else
+					carry = 0
+				end
 
-			--> cant do bitwise ops again
-			U[i + j] = t % BASE
-			k = t // BASE
+				Un[i + j] = sum
+			end
+			
+			Un[nPlusJ] = (Un[nPlusJ] + carry) % BASE
+		else
+			quotient.limbs[j + 1] = qhat
 		end
-		U[nPlusJ] = U[nPlusJ] + k
 	end
-
+	
+	local remainder: BigInteger = BigInteger.new(Un)
+	StripLeadingZeros(remainder)
+	StripLeadingZeros(quotient)
+	
+	--> d8. unnormalize
+	local carry: number = 0
+	local rmLimbs: {number} = remainder.limbs
+	for i: number = #rmLimbs, 1, -1 do
+		local x = carry * BASE + rmLimbs[i]
+		rmLimbs[i] = x // D
+		carry = x % D
+	end
+	
 	if divisor.signum ~= self.signum then
-		return quotient:Negate(true)
+		return quotient:Negate(true), remainder
 	end
 
-	return quotient
+	return quotient, remainder
 end
 
 -- Returns a new string representation of a BigInteger
@@ -636,10 +679,11 @@ BigInteger.__mul = function(a: ValidMetamethodArgument, b: ValidMetamethodArgume
 end
 
 local function divMeta(a: ValidMetamethodArgument, b: ValidMetamethodArgument): BigInteger
-	local term1: BigInteger = ArgumentToBigInteger(a, "mul")
-	local term2: BigInteger = ArgumentToBigInteger(b, "mul")
-
-	return term1:DivideRaw(term2)
+	local term1: BigInteger = ArgumentToBigInteger(a, "div")
+	local term2: BigInteger = ArgumentToBigInteger(b, "div")
+	
+	local quotient: BigInteger, _: BigInteger = term1:DivideRaw(term2)
+	return quotient
 end
 BigInteger.__div, BigInteger.__idiv = divMeta, divMeta
 
