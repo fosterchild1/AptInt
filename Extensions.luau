@@ -13,33 +13,33 @@
 
 -- INSPO: https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/math/BigInteger.java
 
-local BigInteger = require(script.Parent)
+local AptInt = require(script.Parent)
 
-type BigInteger = BigInteger.BigInteger
+type AptInt = AptInt.AptInt
 
 export type Extensions = {
-	read Abs: (n: BigInteger, inPlace: boolean) -> BigInteger,
-	read IsEven: (n: BigInteger) -> boolean,
+	read Abs: (n: AptInt, inPlace: boolean) -> AptInt,
+	read IsEven: (n: AptInt) -> boolean,
 }
 
-BigInteger.Extend(function(tbl: typeof(BigInteger) | any)
-	function tbl:Abs(inPlace: boolean): BigInteger
+AptInt.Extend(function(tbl: typeof(AptInt) | any)
+	function tbl:Abs(inPlace: boolean): AptInt
 		if inPlace then
 			self.signum = -self.signum
 			return self
 		end
 		
-		local result = BigInteger.clone(self)
+		local result = AptInt.clone(self)
 		result.signum = -result.signum
 		return result
 	end
 	
 	function tbl:IsEven(): boolean
-		return (self :: BigInteger).limbs[1] % 2 == 0
+		return (self :: AptInt).limbs[1] % 2 == 0
 	end
 	
-	tbl.zero = BigInteger.new()
-	tbl.one = BigInteger.new({1})
+	tbl.zero = AptInt.new()
+	tbl.one = AptInt.new({1})
 end)
 
 return {}
