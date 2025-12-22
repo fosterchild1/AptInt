@@ -1,13 +1,13 @@
 <p align="center"><img src="https://github.com/fosterchild1/AptInt/blob/main/resources/text.png" width="659" height="288"></p>
 
-## <p align="center">Luau implementation of BigInteger.</p>
+## <p align="center">The most performant Luau implementation of BigInteger.</p>
 It can support up to b × 2⁵³ digits before it loses precision.
 
 Right now, b = 10⁷, which is around 90 sextillion digits.
 
 # 💡 Getting the most performance out of it
 You can make <b>AptInt</b> work better for your use case by:
-- Changing it's "BASE" variable. By default, it is set to 7. If you know you aren't going to multiply or divide two numbers, it can go all the way up to 14, doubling it's performance.
+- Changing it's "BASE" variable. By default, it is set to 7. If you know you aren't going to multiply or divide two numbers, it can go all the way up to 14, doubling its performance.
 - Only constructing using number tables. Avoid parsing from strings or numbers if possible.
 - Using the raw methods instead of metamethods. This avoids additional overhead created by verifying the arguments.
 
