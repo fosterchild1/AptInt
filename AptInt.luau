@@ -158,6 +158,10 @@ end
 local function GetKaratsubaLower(int: AptInt, n: number): AptInt
 	local limbs: {number} = int.limbs
 	
+	if #limbs <= n then
+		return int:clone()
+	end
+	
 	--> unsure if this is faster.
 	if #limbs < SAFE_UNPACK_THRESHOLD then
 		-- table.pack is faster here but FOR SOME REASON IT INCLUDES ["N"] IN THE ARRAY TOO?!
@@ -177,18 +181,23 @@ end
 local function GetKaratsubaUpper(int: AptInt, n: number): AptInt
 	-- {select(unpack(x))} is faster, but unpack only works up to a certain degree.
 	local limbs: {number} = int.limbs
+	local len: number = #limbs
+	
+	if len <= n then
+		return AptInt.new()
+	end
 
-	if #limbs < SAFE_UNPACK_THRESHOLD then
+	if len < SAFE_UNPACK_THRESHOLD then
 		-- select(n + 1, unpack(limbs)) is wayy faster than {unpack(limbs, n+1, #limbs)}
-		return AptInt.new({
-			select(n + 1, unpack(limbs)) :: number
-		})
+		--> for some reason we gotta set it to a variable first or else it breaks...
+		local z: {number} = {select(n + 1, unpack(limbs))}
+		return AptInt.new(z)
 	end
 	
 	local result: AptInt = AptInt.new() -- TODO: tcreate here
 	local resultLimbs: {number} = result.limbs
 	
-	for i: number = n + 1, #limbs do
+	for i: number = n + 1, len do
 		tinsert(resultLimbs, limbs[i])
 	end
 	
@@ -327,7 +336,7 @@ function AptInt:AddRaw(term: AptInt): AptInt
 	elseif selfSign == -1 and summandSign == 1 then -- -a+b = b+(-a) = b-a
 		return (self:Negate(false):SubtractRaw(term)):Negate(true)
 	elseif not sameSign then -- +a+(-b)=a-b
-		return self:SubtractRaw(term:Negate(true))
+		return self:SubtractRaw(term:Negate(false))
 	end
 	
 	local limbsSummand: {number}, limbsSelf: {number} = term.limbs, self.limbs
@@ -364,10 +373,10 @@ function AptInt:SubtractRaw(term: AptInt): AptInt
 	local sameSign: boolean = (selfSign == termSign)
 	
 	--> CASES
-	if termSign == 0 then
+	if termSign == 0 then -- b - 0 = 0
 		return self:clone()
-	elseif selfSign == 0 then
-		return term:clone()
+	elseif selfSign == 0 then -- 0 - b = -b
+		return term:Negate(false)
 	elseif termSign == -1 and selfSign == 1 then -- a - (-b) = a + b
 		return term:Negate(false):AddRaw(self)
 	elseif sameSign and selfSign == -1 then -- (-a-(-b)) b-a
@@ -375,7 +384,7 @@ function AptInt:SubtractRaw(term: AptInt): AptInt
 	end
 	
 	if self:LowerThanRaw(term) then
-		return term:SubtractRaw(self):Negate(true)
+		return (term:SubtractRaw(self)):Negate(true)
 	end
 	
 	local result: AptInt = AptInt.new()
@@ -433,7 +442,7 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 		end
 		
 		--> TODO: get rid of mulResult
-		local mulResult: AptInt = AptInt.new(tcreate(prependedZeros + #factorlimbs, 0))
+		local mulResult: AptInt = AptInt.new(tcreate(prependedZeros + #selflimbs, 0))
 		
 		for j: number, selfDigit: number in selflimbs do
 			local mul: number = selfDigit * factorDigit + carry
