@@ -99,6 +99,7 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 			return {0}, 0
 		end
 		local actualSign: number = sign(num)
+		num = abs(num)
 		
 		local arr: {number} = {}
 		while num > 0 do
@@ -426,6 +427,7 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 			continue
 		end
 		
+		--> TODO: get rid of mulResult
 		local mulResult: AptInt = AptInt.new(tcreate(prependedZeros + #factorlimbs, 0))
 		
 		for j: number, selfDigit: number in selflimbs do
@@ -498,7 +500,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	end
 	
 	local divisorSinglelimb: boolean = #V == 1
-
+	
 	--> d0. defs
 	local n: number = #V
 	local m: number = #U - n
@@ -510,6 +512,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	else
 		--> TODO: we lose most performance here in MultiplyRaw
 		--> because the limb size for divisor & self is big but the limb size for D is 1
+		--> because knuths corrects, we should choose D to be a power of 10 and then left shift using base 10
 		D = BASE // (V[n] + 1)
 		local Dint: AptInt = AptInt.new(D)
 		Vn = divisor:MultiplyRaw(Dint).limbs
