@@ -482,7 +482,8 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 		result.limbs[i] = sum % BASE
 		carry = sum // BASE
 	end
-	
+
+	StripLeadingZeros(result)
 	result.signum = selfSign * factorSign
 	return result
 end
