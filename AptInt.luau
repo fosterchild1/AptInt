@@ -349,15 +349,17 @@ function AptInt:AddRaw(term: AptInt): AptInt
 		return self:SubtractRaw(term:Negate(false))
 	end
 	
-	local limbsSummand: {number}, limbsSelf: {number} = term.limbs, self.limbs
-	local limbsToAdd: number = max(#limbsSelf, #limbsSummand)
+	local summandLimbs: {number}, selfLimbs: {number} = term.limbs, self.limbs
+	if #selfLimbs < #summandLimbs then
+		selfLimbs, summandLimbs =  summandLimbs, selfLimbs
+	end
 
-	local result: {number} = tcreate(limbsToAdd, 0)
+	local result: {number} = tcreate(#selfLimbs, 0)
 
 	--> from right to left
 	local carry: number = 0
-	for i: number = 1, limbsToAdd do
-		local sum: number = (limbsSelf[i] or 0) + (limbsSummand[i] or 0) + carry
+	for i: number, selfDigit: number in selfLimbs do
+		local sum: number = selfDigit + (summandLimbs[i] or 0) + carry
 		
 		if sum >= BASE then
 			carry = 1
@@ -370,7 +372,7 @@ function AptInt:AddRaw(term: AptInt): AptInt
 	end
 
 	if carry > 0 then
-		result[limbsToAdd + 1] = carry
+		result[#result + 1] = carry
 	end
 	
 	local rAptInt: AptInt = AptInt.new(result)
