@@ -31,6 +31,7 @@ export type AptInt = setmetatable<{
 	read AddRaw: (term: AptInt, term: AptInt) -> AptInt,
 	read SubtractRaw: (term: AptInt, term: AptInt) -> AptInt,
 	read MultiplyRaw: (factor: AptInt, factor: AptInt) -> AptInt,
+	read Square: (n: AptInt) -> AptInt,
 	read DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt),
 	read ModRaw: (n: AptInt, div: AptInt) -> AptInt,
 	read PowRaw: (n: AptInt, pow: AptInt) -> AptInt,
@@ -224,11 +225,11 @@ local function MultiplyKaratsuba(x: AptInt, y: AptInt): AptInt
 
 	-- (z2 × BASE ^ (m2 × 2)) + ((z1 - z2 - z0) × BASE ^ m2) + z0
 	-- since base is a power of 10, we can just prepend zeros to avoid slow exponentiation
-	-- => z0 + ((z1 - z2 - z0) << m2) + (z2 << m2 * 2)
-
+	-- => z0 + ((z1 - (z2 + z0)) << m2) + (z2 << m2 * 2)
+	
 	local result = z2:LeftShift(m2 * 2)
 		:AddRaw(
-			(z1:SubtractRaw(z2):SubtractRaw(z0)):LeftShift(m2)
+			(z1:SubtractRaw(z2:AddRaw(z0))):LeftShift(m2)
 		)
 		:AddRaw(z0)
 
@@ -320,7 +321,7 @@ local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
 	local limbLen: number = #n.limbs
 	if limbLen < SQRT_KARATSUBA_THRESHOLD then
 		local sq = NewtonHeronSqrt(n)
-		return sq, n:SubtractRaw(sq:MultiplyRaw(sq))
+		return sq, n:SubtractRaw(sq:Square())
 	end
 	
 	--> split must be even
@@ -347,7 +348,7 @@ local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
 	--> get sqrt and correct
 	local s: AptInt = s1:LeftShift(m):AddRaw(q) -- s=s1*b+q
 
-	local r: AptInt = n:SubtractRaw(s:MultiplyRaw(s))
+	local r: AptInt = n:SubtractRaw(s:Square())
 	
 	if r.signum == -1 then
 		r = r:AddRaw(s:AddRaw(s)):SubtractRaw(AP_ONE)
@@ -416,7 +417,7 @@ end
 --> ARITHMETIC FUNCTIONS
 -- =====================
 
--- Returns an AptInt equal to <code>a + b</code>.
+-- Returns the value of <code>a + b</code>.
 function AptInt:AddRaw(term: AptInt): AptInt
 	local selfSign: number, summandSign: number = self.signum, term.signum
 	local sameSign: boolean = selfSign == summandSign
@@ -463,7 +464,7 @@ function AptInt:AddRaw(term: AptInt): AptInt
 	return rAptInt
 end
 
--- Returns an AptInt, equal to <code>a - b</code>.
+-- Returns the value of <code>a - b</code>.
 function AptInt:SubtractRaw(term: AptInt): AptInt
 	local selfSign: number, termSign: number = self.signum, term.signum
 	local sameSign: boolean = (selfSign == termSign)
@@ -513,7 +514,7 @@ function AptInt:SubtractRaw(term: AptInt): AptInt
 	return AptInt.new(result)
 end
 
--- Returns an AptInt equal to <code>a * b</code>.
+-- Returns the value of <code>a * b</code>.
 function AptInt:MultiplyRaw(factor: AptInt): AptInt
 	local selfSign: number, factorSign: number = self.signum, factor.signum
 
@@ -580,6 +581,35 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 
 	StripLeadingZeros(result)
 	result.signum = selfSign * factorSign
+	return result
+end
+
+-- Returns the value of <code>n^2</code>.
+function AptInt:Square(): AptInt
+	local len: number = #(self :: AptInt).limbs
+	if len < KARATSUBA_THRESHOLD then
+		return self:MultiplyRaw(self)
+	end
+	
+	local m2: number = (len + 1) // 2
+	
+	local xl: AptInt, xh: AptInt = GetKaratsubaLower(self, m2), GetKaratsubaUpper(self, m2)
+	local xlSq: AptInt, xhSq: AptInt = xl:Square(), xh:Square()
+	
+	-- z0 + ((z1 - z2 - z0) << m2) + (z2 << m2 * 2)
+	-- xlSq + z1-z2-z0<<m2 + xhSq<<m2*2
+	-- z1-z2-z0 = (xl+xh)^2 - (xhSq + xlSq)
+	
+	local mid: AptInt = xl:AddRaw(xh):Square():SubtractRaw(xhSq:AddRaw(xlSq))
+	
+	local result = xlSq
+		:AddRaw(mid:LeftShift(m2))
+		:AddRaw(xhSq:LeftShift(m2 * 2))
+
+	if self.signum == -1 then
+		return result:Negate(true)
+	end
+
 	return result
 end
 
@@ -822,7 +852,7 @@ function AptInt:PowRaw(pow: AptInt)
 				result = selfClone:MultiplyRaw(result)
 			end
 
-			selfClone = selfClone:MultiplyRaw(selfClone)
+			selfClone = selfClone:Square()
 			n //= 2
 		end
 
@@ -838,7 +868,7 @@ function AptInt:PowRaw(pow: AptInt)
 			--powClone = powClone:SubtractRaw(AP_ONE)
 		end
 
-		selfClone = selfClone:MultiplyRaw(selfClone)
+		selfClone = selfClone:Square()
 		powClone = powClone:DivideRaw(AP_TWO)
 	end
 
