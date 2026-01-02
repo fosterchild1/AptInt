@@ -31,7 +31,6 @@ export type AptInt = setmetatable<{
 	read AddRaw: (term: AptInt, term: AptInt) -> AptInt,
 	read SubtractRaw: (term: AptInt, term: AptInt) -> AptInt,
 	read MultiplyRaw: (factor: AptInt, factor: AptInt) -> AptInt,
-	read Square: (n: AptInt) -> AptInt,
 	read DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt),
 	read ModRaw: (n: AptInt, div: AptInt) -> AptInt,
 	read PowRaw: (n: AptInt, pow: AptInt) -> AptInt,
@@ -60,6 +59,7 @@ local sign: (number) -> number = math.sign
 local tcreate: <V>(number, V?) -> {V} = table.create
 local tinsert: <V>({V}, V) -> () & <V>({V}, number, V) -> () = table.insert
 local tremove: <V>({V}, number?) -> V? = table.remove
+local tmove: <V>({V}, number, number, number, {V}?) -> {V} = table.move
 local tclone: <T>({T}) -> {T} = table.clone
 
 local sformat: (string, ...unknown) -> string = string.format
@@ -70,6 +70,7 @@ local sformat: (string, ...unknown) -> string = string.format
 
 local KARATSUBA_THRESHOLD: number = 45 -- in limbs, limit where karatsuba is faster than normal multiplication
 local SQRT_KARATSUBA_THRESHOLD: number = 32
+local TOOM_THRESHOLD: number = 90
 local SAFE_UNPACK_THRESHOLD: number = 8000 -- unpack() max size in limbs
 
 local MAX_LOSSLESS_POW: number = 53 -- 2^53
@@ -82,6 +83,7 @@ local AP_NEG_ONE: AptInt
 local AP_ZERO: AptInt
 local AP_ONE: AptInt
 local AP_TWO: AptInt
+local AP_THREE: AptInt
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
@@ -213,6 +215,10 @@ local function GetKaratsubaUpper(int: AptInt, n: number): AptInt
 	return AptInt.new(result)
 end
 
+local function GetToomSlice(n: AptInt, startIdx: number, endIdx: number)
+	return AptInt.new({unpack(n.limbs, startIdx, endIdx)})
+end
+
 local function MultiplyKaratsuba(x: AptInt, y: AptInt): AptInt
 	local m2: number = (max(#x.limbs, #y.limbs) + 1)//2
 
@@ -225,11 +231,11 @@ local function MultiplyKaratsuba(x: AptInt, y: AptInt): AptInt
 
 	-- (z2 × BASE ^ (m2 × 2)) + ((z1 - z2 - z0) × BASE ^ m2) + z0
 	-- since base is a power of 10, we can just prepend zeros to avoid slow exponentiation
-	-- => z0 + ((z1 - (z2 + z0)) << m2) + (z2 << m2 * 2)
-	
+	-- => z0 + ((z1 - z2 - z0) << m2) + (z2 << m2 * 2)
+
 	local result = z2:LeftShift(m2 * 2)
 		:AddRaw(
-			(z1:SubtractRaw(z2:AddRaw(z0))):LeftShift(m2)
+			(z1:SubtractRaw(z2):SubtractRaw(z0)):LeftShift(m2)
 		)
 		:AddRaw(z0)
 
@@ -237,6 +243,56 @@ local function MultiplyKaratsuba(x: AptInt, y: AptInt): AptInt
 		return result:Negate(true)
 	end
 
+	return result
+end
+
+local function MultiplyToomCook3(x: AptInt, y: AptInt): AptInt
+	local largest: number = max(#x.limbs, #y.limbs)
+	
+	local k: number = largest//3
+	local r: number = largest*2//3
+	
+	-- get slices
+	local x0: AptInt, x1: AptInt = GetToomSlice(x, 1, k), GetToomSlice(x, k+1, r)
+	local x2: AptInt = GetToomSlice(x, r+1, largest)
+	
+	local y0: AptInt, y1: AptInt = GetToomSlice(y, 1, k), GetToomSlice(y, k+1, r)
+	local y2: AptInt = GetToomSlice(y, r+1, largest)
+	
+	local v0: AptInt = x0:MultiplyRaw(y0)
+	local da1: AptInt = x2:AddRaw(x0)
+	local db1: AptInt = y2:AddRaw(y0)
+	local vm1: AptInt = da1:SubtractRaw(x1):MultiplyRaw(db1:SubtractRaw(y1))
+	
+	da1 = da1:AddRaw(x1)
+	db1 = db1:AddRaw(y1)
+	
+	local v1: AptInt = da1:MultiplyRaw(db1)
+	local da1x2: AptInt = da1:AddRaw(x2)
+	local db1y2: AptInt = db1:AddRaw(y2)
+	
+	local v2: AptInt = da1x2:AddRaw(da1x2):SubtractRaw(x0):MultiplyRaw(
+		db1y2:AddRaw(db1y2):SubtractRaw(y0)
+	)
+	
+	--> all divisions here are single-limb, so they are O(n).
+	local vinf: AptInt = x2:MultiplyRaw(y2)
+	local t2: AptInt = v2:SubtractRaw(vm1):DivideRaw(AP_THREE)
+	local tm1: AptInt = v1:SubtractRaw(vm1):DivideRaw(AP_TWO)
+	local t1: AptInt = v1:SubtractRaw(v0)
+	
+	t2 = t2:SubtractRaw(t1):DivideRaw(AP_TWO) 
+	t1 = t1:SubtractRaw(tm1):SubtractRaw(vinf)
+	t2 = t2:SubtractRaw(vinf:AddRaw(vinf))
+	tm1 = tm1:SubtractRaw(t2)
+	
+	local result: AptInt = vinf:LeftShift(k):AddRaw(t2):LeftShift(k):AddRaw(t1):LeftShift(k):AddRaw(tm1)
+		:LeftShift(k):AddRaw(v0)
+	
+	if x.signum ~= y.signum then
+		return result:Negate(false)
+	end
+	
 	return result
 end
 
@@ -321,7 +377,7 @@ local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
 	local limbLen: number = #n.limbs
 	if limbLen < SQRT_KARATSUBA_THRESHOLD then
 		local sq = NewtonHeronSqrt(n)
-		return sq, n:SubtractRaw(sq:Square())
+		return sq, n:SubtractRaw(sq:MultiplyRaw(sq))
 	end
 	
 	--> split must be even
@@ -348,7 +404,7 @@ local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
 	--> get sqrt and correct
 	local s: AptInt = s1:LeftShift(m):AddRaw(q) -- s=s1*b+q
 
-	local r: AptInt = n:SubtractRaw(s:Square())
+	local r: AptInt = n:SubtractRaw(s:MultiplyRaw(s))
 	
 	if r.signum == -1 then
 		r = r:AddRaw(s:AddRaw(s)):SubtractRaw(AP_ONE)
@@ -391,6 +447,7 @@ AP_NEG_ONE = AptInt.new(-1)
 AP_ZERO = AptInt.new()
 AP_ONE = AptInt.new({1})
 AP_TWO = AptInt.new({2})
+AP_THREE = AptInt.new({3	})
 
 -- Returns a copy of the AptInt.
 function AptInt.clone(n: AptInt): AptInt
@@ -417,7 +474,7 @@ end
 --> ARITHMETIC FUNCTIONS
 -- =====================
 
--- Returns the value of <code>a + b</code>.
+-- Returns an AptInt equal to <code>a + b</code>.
 function AptInt:AddRaw(term: AptInt): AptInt
 	local selfSign: number, summandSign: number = self.signum, term.signum
 	local sameSign: boolean = selfSign == summandSign
@@ -464,7 +521,7 @@ function AptInt:AddRaw(term: AptInt): AptInt
 	return rAptInt
 end
 
--- Returns the value of <code>a - b</code>.
+-- Returns an AptInt, equal to <code>a - b</code>.
 function AptInt:SubtractRaw(term: AptInt): AptInt
 	local selfSign: number, termSign: number = self.signum, term.signum
 	local sameSign: boolean = (selfSign == termSign)
@@ -514,7 +571,7 @@ function AptInt:SubtractRaw(term: AptInt): AptInt
 	return AptInt.new(result)
 end
 
--- Returns the value of <code>a * b</code>.
+-- Returns an AptInt equal to <code>a * b</code>.
 function AptInt:MultiplyRaw(factor: AptInt): AptInt
 	local selfSign: number, factorSign: number = self.signum, factor.signum
 
@@ -526,6 +583,7 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 	local selflimbs: {number} = self.limbs
 	local factorlimbs: {number} = factor.limbs
 	local factorLen: number = #factorlimbs
+	local selfLen: number = #selflimbs
 
 	--> single limb multiplication
 	if factorLen == 1 then
@@ -555,9 +613,10 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 		result.signum = selfSign * factorSign
 		return result
 	end
-
-
-	if #selflimbs > KARATSUBA_THRESHOLD and factorLen > KARATSUBA_THRESHOLD then
+	
+	if selfLen > TOOM_THRESHOLD and factorLen > TOOM_THRESHOLD then
+		return MultiplyToomCook3(self, factor)
+	elseif selfLen > KARATSUBA_THRESHOLD and factorLen > KARATSUBA_THRESHOLD then
 		return MultiplyKaratsuba(self, factor)
 	end
 
@@ -581,35 +640,6 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 
 	StripLeadingZeros(result)
 	result.signum = selfSign * factorSign
-	return result
-end
-
--- Returns the value of <code>n^2</code>.
-function AptInt:Square(): AptInt
-	local len: number = #(self :: AptInt).limbs
-	if len < KARATSUBA_THRESHOLD then
-		return self:MultiplyRaw(self)
-	end
-	
-	local m2: number = (len + 1) // 2
-	
-	local xl: AptInt, xh: AptInt = GetKaratsubaLower(self, m2), GetKaratsubaUpper(self, m2)
-	local xlSq: AptInt, xhSq: AptInt = xl:Square(), xh:Square()
-	
-	-- z0 + ((z1 - z2 - z0) << m2) + (z2 << m2 * 2)
-	-- xlSq + z1-z2-z0<<m2 + xhSq<<m2*2
-	-- z1-z2-z0 = (xl+xh)^2 - (xhSq + xlSq)
-	
-	local mid: AptInt = xl:AddRaw(xh):Square():SubtractRaw(xhSq:AddRaw(xlSq))
-	
-	local result = xlSq
-		:AddRaw(mid:LeftShift(m2))
-		:AddRaw(xhSq:LeftShift(m2 * 2))
-
-	if self.signum == -1 then
-		return result:Negate(true)
-	end
-
 	return result
 end
 
@@ -852,7 +882,7 @@ function AptInt:PowRaw(pow: AptInt)
 				result = selfClone:MultiplyRaw(result)
 			end
 
-			selfClone = selfClone:Square()
+			selfClone = selfClone:MultiplyRaw(selfClone)
 			n //= 2
 		end
 
@@ -868,7 +898,7 @@ function AptInt:PowRaw(pow: AptInt)
 			--powClone = powClone:SubtractRaw(AP_ONE)
 		end
 
-		selfClone = selfClone:Square()
+		selfClone = selfClone:MultiplyRaw(selfClone)
 		powClone = powClone:DivideRaw(AP_TWO)
 	end
 
@@ -1013,15 +1043,14 @@ end
 
 -- Returns a new AptInt equal to <code>n * 10<sup>(BASE * amount)</sup></code>
 function AptInt:LeftShift(amount: number): AptInt
-	local result: AptInt = self:clone()
-
+	--[[local result: AptInt = self:clone()
 	local tbl: {number} = result.limbs
 
-	for i: number = 1, amount do
+	for _: number = 1, amount do
 		tinsert(tbl, 1, 0)
-	end
+	end]]
 
-	return result
+	return AptInt.new(tmove(self.limbs, 1, #self.limbs, amount+1, tcreate(amount, 0))) -- way faster
 end
 
 -- Returns a new AptInt equal to <code>n // 10<sup>(BASE * amount)</sup></code>
