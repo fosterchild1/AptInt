@@ -28,7 +28,7 @@ MultiplyRaw: (factor: AptInt, factor: AptInt) -> Aptint -- O(n^2) for school gra
 DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt) -- O(n*m)
 ModRaw: (n: AptInt, div: AptInt) -> Aptint -- O(n*m) for regular, O(1) for powers of 2, 5 and 10
 PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- O(n^1.585 * log n)
-sqrt: (n: AptInt) -> AptInt -- O(n^2 log n) for newton-heron, O(n^1.585 log n) for karatsuba square root
+sqrt: (n: AptInt) -> AptInt -- O(n^2 log n) for Newton-Heron, fast O(n^2 log n) for Karatsuba square root
 ```
 
 ### Comparison
@@ -36,6 +36,12 @@ sqrt: (n: AptInt) -> AptInt -- O(n^2 log n) for newton-heron, O(n^1.585 log n) f
 EqualsRaw: (x: AptInt, y: AptInt) -> boolean -- O(n)
 LowerThanRaw: (x: AptInt, y: AptInt) -> boolean -- O(n)
 LowerOrEqualToRaw: (x: AptInt, y: AptInt) -> boolean -- O(n)
+```
+
+### Other
+```luau
+LeftShift: (n: AptInt, amount: number) -> AptInt -- O(n)
+RightShift: (n: AptInt, amount: number0 -> AptInt -- O(n)
 ```
 
 ### Conversion
@@ -54,6 +60,11 @@ Min: (...AptInt) -> boolean, -- O(n)
 Max: (...AptInt) -> boolean, -- O(n)
 Clamp: (n: AptInt, min: AptInt, max: AptInt) -> AptInt, -- O(n)
 ```
+
+# Syntax
+You can use an AptInt in two ways:
+1. Calling the raw functions - this is the faster way. You can only pass in AptInts and not other data types, with the exception of `LeftShift` and `RightShift`.
+2. Using arithmetic operators directly - AptInt supports operators such as `+`, `-`, `*`, `/`, `^`, `%`, and they also allow you to use other data types like numbers or strings directly, at the cost of performance.
 
 # Example Usage
 Below is example usage of almost all functions provided by Aptint.luau and Extensions.luau. It is also timed and usually finishes in 5 milliseconds, with most of the time being spent on exponentiation.
