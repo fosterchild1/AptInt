@@ -467,7 +467,7 @@ function AptInt:AddRaw(term: AptInt): AptInt
 		selfLimbs, summandLimbs =  summandLimbs, selfLimbs
 	end
 
-	local result: AptInt = AptInt.new()
+	local result: AptInt = self:clone()
 	local rLimbs: {number} = result.limbs
 
 	--> from right to left
@@ -513,14 +513,14 @@ function AptInt:SubtractRaw(term: AptInt): AptInt
 		return (term:SubtractRaw(self)):Negate(true)
 	end
 
-	local result: AptInt = AptInt.new()
+	local result: AptInt = self:clone()
 	local rLimbs: {number} = result.limbs
 	
 	local limbsSubrahend: {number} = term.limbs
 
 	--> from right to left
 	local borrow: number = 0
-	for i: number, digit: number in self.limbs do
+	for i: number, digit: number in rLimbs do
 		local diff: number = digit - (limbsSubrahend[i] or 0) - borrow
 		if diff < 0 then
 			borrow = 1
@@ -553,14 +553,13 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 	--> single limb multiplication
 	if factorLen == 1 then
 		local mul: number = factorlimbs[1]
+		local result = self:clone() -- minor optimization over tcreate()
 		if mul == 1 then 
-			local result = self:clone()
 			result.signum = selfSign * factorSign
 
 			return result
 		end
-		
-		local result: AptInt = AptInt.new()
+
 		local rLimbs: {number} = result.limbs
 
 		local carry: number = 0
@@ -587,7 +586,7 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 
 	--> normal o(n^2) algorithm
 	local len: number = selfLen + factorLen
-	local result: AptInt = AptInt.new()
+	local result: AptInt = AptInt.new(tcreate(len, 0))
 	local rLimbs: {number} = result.limbs
 	
 	local carry: number = 0
@@ -646,7 +645,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 			return result, AptInt.new()
 		end
 
-		local quotient: AptInt = AptInt.new()
+		local quotient: AptInt = AptInt.new(tcreate(#U - 1, 0))
 		local qLimbs: {number} = quotient.limbs
 
 		local carry: number = 0
@@ -678,7 +677,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	local Vnn: number = Vn[n]
 	local penultimateVn: number = Vn[n-1] or 0
 
-	local quotient: AptInt = AptInt.new()
+	local quotient: AptInt = AptInt.new(tcreate(m + 1, 0))
 	local qLimbs: {number} = quotient.limbs
 
 	--> d2. init j
