@@ -15,19 +15,24 @@ AptInt.new({123}) -- O(1)
 Each method has their arguments and their types listed, alongside their computational complexity.<br/>
 Metamethods are also supported, but they have added overhead compared to the raw functions.
 
+In the computational complexity, we use a couple of terms that may be unknown to some. Their meanings are listed below:
+- n - the size of the input
+- M(n) - computational complexity of multiplying the input
+- D(n) - computational complexity of dividing the input
+
 ```luau
-clone(n: AptInt) -> Aptint -- O(1)
-Negate(n: AptInt, inPlace: boolean) -> Aptint -- O(1)
+clone(n: AptInt) -> Aptint -- O(n)
+Negate(n: AptInt, inPlace: boolean) -> Aptint -- O(1) for inPlace, O(n) otherwise
 ```
 
 ### Arithmetic
 ```luau
 AddRaw: (term: AptInt, term: AptInt) -> Aptint -- O(n)
 SubtractRaw: (term: AptInt, term: AptInt) -> Aptint -- O(n)
-MultiplyRaw: (factor: AptInt, factor: AptInt) -> Aptint -- O(n^2) for school grade, O(n^1.585) for karatsuba algorithm
+MultiplyRaw: (factor: AptInt, factor: AptInt) -> Aptint -- O(n^2) for school grade, O(n^1.585) for Karatsuba algorithm, O(n^1.465) for Toom-Cook 3 algorithm
 DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt) -- O(n*m)
-ModRaw: (n: AptInt, div: AptInt) -> Aptint -- O(n*m) for regular, O(1) for powers of 2, 5 and 10
-PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- O(n^1.585 * log n)
+ModRaw: (n: AptInt, div: AptInt) -> Aptint -- O(D(n)) for regular, O(1) for powers of 2, 5 and 10
+PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- O(M(n) * log n)
 sqrt: (n: AptInt) -> AptInt -- O(n^2 log n) for Newton-Heron, fast O(n^2 log n) for Karatsuba square root
 ```
 
@@ -54,11 +59,12 @@ ToNumber: (n: AptInt) -> number -- O(n)
 Extensions are extra methods/variables added with the `Extend` function. Currently, the official extensions are:
 
 ```luau
-Abs: (n: AptInt, inPlace: boolean) -> AptInt, -- O(1)
+Abs: (n: AptInt, inPlace: boolean) -> AptInt, -- O(1) for inPlace, O(n) otherwise
 IsEven: (n: AptInt) -> boolean, -- O(1)
 Min: (...AptInt) -> boolean, -- O(n)
 Max: (...AptInt) -> boolean, -- O(n)
 Clamp: (n: AptInt, min: AptInt, max: AptInt) -> AptInt, -- O(n)
+ModPow: (n: AptInt, mod: AptInt, exp: AptInt) -> AptIntm -- O(M(n) log n)
 ```
 
 # Syntax
