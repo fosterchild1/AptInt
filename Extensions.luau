@@ -27,6 +27,8 @@ export type Extensions = {
 	read ModPow: (n: AptInt, mod: AptInt, exp: AptInt) -> AptInt,
 }
 
+export type ExtendedApt = AptInt & Extensions
+
 local bband: (number, number) -> number = bit32.band
 local brshift: (number, number) -> number = bit32.rshift
 
