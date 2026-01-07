@@ -7,16 +7,30 @@ type AptInt = aptint.AptInt
 
 local clock: () -> number = os.clock
 local random: (number?, number?) -> number = math.random
+local insert = table.insert
 
-local digits: {number} = {1, 50, 100, 500, 1000, 5000, 10000, 50000, 100000}
+local MAX = 10^7-1
+
+local digits: {number} = {1, 50, 100, 500, 1_000, 5_000, 10_000, 50_000, 100_000}
 
 local function BuildRandomNum(digitCount: number): AptInt
-	local n: string = random(1, 2) == 1 and "-" or ""
-	for i = 1, digitCount do
-		n ..= random(1, 9)
+	if digitCount <= 7 then
+		return aptint.new({random(1, 9.99999999^digitCount)})
 	end
-
-	return aptint.new(n)
+	
+	local len: number = digitCount//7*7
+	local tbl: {number} = {}
+	
+	for i: number = 7, len, 7 do
+		if i == len then -- avoid leading zeros
+			insert(tbl, random(1, MAX))
+			continue
+		end
+		
+		insert(tbl, random(0, MAX))
+	end
+	
+	return aptint.new(tbl)
 end
 
 local function BenchFunc(name: string, fn: (AptInt, AptInt) -> ()): ()
