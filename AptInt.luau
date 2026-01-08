@@ -23,7 +23,7 @@ export type AptInt = setmetatable<{
 
 	read clone: (n: AptInt) -> AptInt,
 
-	read Negate: (n: AptInt, inPlace: boolean) -> AptInt,
+	read Negate: (n: AptInt, inPlace: boolean?) -> AptInt,
 
 	read LeftShift: (n: AptInt, amount: number) -> AptInt,
 	read RightShift: (n: AptInt, amount: number) -> AptInt,
@@ -326,8 +326,7 @@ local function EqualsAbsolute(x: AptInt, y: AptInt): boolean
 	end
 
 	for i: number, xLimb: number in xLimbs do
-		local yLimb: number = yLimbs[i] or 0
-		if xLimb == yLimb then continue end
+		if xLimb == yLimbs[i] then continue end
 
 		return false
 	end
@@ -342,15 +341,15 @@ local function NewtonHeronSqrt(n: AptInt): AptInt
 	
 	while true do
 		local q: AptInt, _: AptInt = n:DivideRaw(prev1)
-		local x1: AptInt = prev1:AddRaw(q):DivideRaw(AP_TWO)
+		local x1: AptInt = prev1:AddRaw(q):DivideRaw(AP_TWO, true)
 
-		local equals: boolean = x1:EqualsRaw(prev1)
+		local equals: boolean = EqualsAbsolute(x1, prev1)
 		if equals then
 			return x1
 		end
 
-		if x1:EqualsRaw(prev2) then
-			return (x1:LowerThanRaw(prev1) and x1 or prev1) -- min(x1, prev1)
+		if EqualsAbsolute(x1, prev2) then
+			return (LowerThanAbsolute(x1, prev1) and x1 or prev1) -- min(x1, prev1)
 		end
 
 		prev2, prev1 = prev1, x1
@@ -391,17 +390,17 @@ local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
 	
 	--> divrem (r1*b + a1, 2*s1)
 	local q, u: AptInt = 
-		r1:LeftShift(m):AddRaw(a1)
-		:DivideRaw(s1:AddRaw(s1))
+		r1:LeftShift(m):AddRaw(a1, true)
+		:DivideRaw(s1:AddRaw(s1), true)
 
 	--> get sqrt and correct
-	local s: AptInt = s1:LeftShift(m):AddRaw(q) -- s=s1*b+q
+	local s: AptInt = s1:LeftShift(m):AddRaw(q, true) -- s=s1*b+q
 
 	local r: AptInt = n:SubtractRaw(s:MultiplyRaw(s))
 	
 	if r.signum == -1 then
-		r = r:AddRaw(s:AddRaw(s)):SubtractRaw(AP_ONE)
-		s = s:SubtractRaw(AP_ONE)
+		r:AddRaw(s:AddRaw(s), true):SubtractRaw(AP_ONE, true)
+		s:SubtractRaw(AP_ONE, true)
 	end
 	
 	return s, r
@@ -515,7 +514,7 @@ function AptInt:SubtractRaw(term: AptInt, inPlace: boolean?): AptInt
 	if termSign == 0 then -- b - 0 = 0
 		return self:clone()
 	elseif selfSign == 0 then -- 0 - b = -b
-		return term:Negate(false)
+		return term:Negate()
 	elseif termSign == -1 and selfSign == 1 then -- a-(-b) = a+b
 		return NegateRef(term):AddRaw(self)
 	elseif selfSign == termSign and selfSign == -1 then -- (-a-(-b)) = b-a
@@ -523,7 +522,7 @@ function AptInt:SubtractRaw(term: AptInt, inPlace: boolean?): AptInt
 	end
 	
 	if self:LowerThanRaw(term) then
-		return (term:SubtractRaw(self)):Negate(true)
+		return term:SubtractRaw(self):Negate(true)
 	end
 
 	local result: AptInt = (inPlace and self or self:clone())
@@ -1016,7 +1015,7 @@ end
 -- ============
 
 AptInt.__unm = function(num: AptInt): AptInt
-	return num:Negate(false)
+	return num:Negate()
 end
 
 AptInt.__add = function(a: ValidMetamethodArgument, b: ValidMetamethodArgument): AptInt
