@@ -27,11 +27,11 @@ The results are updated every time the performance gets improved.
 | Digit count | Addition | Subtraction | Multiplication | Division | Square root |
 | ---  | --- | --- | --- | --- | --- |
 | 1 | 1μs | 1μs | 1μs | 6μs | 7μs |
-| 50 | 1μs | 3μs | 14μs | 24μs | 40μs |
-| 100 | 1μs | 7μs | 18μs | 31μs | 322μs |
-| 500 | 2μs | 9μs | 220μs | 114μs | 737μs |
-| 1,000 | 10μs | 13μs | 659μs | 353μs | 1ms |
-| 5,000 | 37μs | 30μs | 8ms | 7ms | 5ms |
-| 10,000 | 57μs | 74μs | 16ms | 31ms | 17ms |
-| 50,000 | 229μs | 243μs | 147ms | 634ms | 594ms |
-| 100,000 | 439μs | 470μs | 432ms | 2.5s | 2s |
+| 50 | 1μs | 3μs | 9μs | 24μs | 40μs |
+| 100 | 1μs | 7μs | 12μs | 31μs | 322μs |
+| 500 | 2μs | 9μs | 120μs | 114μs | 737μs |
+| 1,000 | 10μs | 13μs | 406μs | 353μs | 1ms |
+| 5,000 | 37μs | 30μs | 4ms | 7ms | 5ms |
+| 10,000 | 57μs | 74μs | 14ms | 31ms | 17ms |
+| 50,000 | 229μs | 243μs | 139ms | 634ms | 507ms |
+| 100,000 | 439μs | 470μs | 406ms | 2.5s | 1.9s |
