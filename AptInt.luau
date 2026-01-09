@@ -78,9 +78,8 @@ local KARATSUBA_THRESHOLD: number = 45 -- in limbs, limit where karatsuba is fas
 local SQRT_KARATSUBA_THRESHOLD: number = 32
 local TOOM_THRESHOLD: number = 90
 
-local BASE_POW: number = 26 -- MUST SATISFY: 2^(BASE_POW*2) < 2^53, because of multiplyraw and divideraw
-local L10_BASE_POW: number = floor(log10(BASE_POW))
-local BASE: number = 2 ^ BASE_POW
+local BASE_POW: number = 7 -- MUST SATISFY: 2^(BASE_POW*2) < 2^53, because of multiplyraw and divideraw
+local BASE: number = 10 ^ 7
 
 local AP_NEG_ONE: AptInt
 local AP_ZERO: AptInt
@@ -142,8 +141,7 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 	end,
 
 	["table"] = function(tbl: {any}): ({number}, number)
-		local first: any = tbl[1]
-		if not first then
+		if not tbl[1] then
 			return {0}, 0
 		end
 		
@@ -289,31 +287,20 @@ end
 
 --> divsion stuff
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
-	local selfSign: number, divSign: number = self.signum, divisor.signum
+	--[[local selfSign: number, divSign: number = self.signum, divisor.signum
 	local sameSign: boolean = selfSign == divSign
-
-	if sameSign then
-		if divSign == -1 then
-			return remainder:Negate(true)
-		end
-
+	
+	if sameSign and divSign == -1 then
+		remainder.signum = -1
 		return remainder
 	elseif selfSign == 1 and divSign == -1 and remainder.signum ~= 0 then
 		return divisor:AddRaw(remainder)
-	elseif remainder.signum ~= 0 then
+	elseif not sameSign and remainder.signum ~= 0 then -- selfsign -1, divsign 1
+		remainder.signum = 1
 		return divisor:SubtractRaw(remainder)
-	end
+	end]]
 
 	return remainder
-end
-
-local function TryModExp(limb: number, div: number, base: number): (boolean, number)
-	local log: number = log(div, base)
-	if log ~= floor(log) or log > L10_BASE_POW then -- log > L10_BASE_POW since each power we check 1 more digit
-		return false, 0
-	end	
-
-	return true, limb % div
 end
 
 local function LowerThanAbsolute(x: AptInt, y: AptInt): boolean
@@ -632,17 +619,21 @@ function AptInt:MultiplyRaw(factor: AptInt, inPlace: boolean?): AptInt
 		local p: number = carry
 		local iplus: number = i + 1
 		
-		for j: number = max(i - factorLen, 1), min(i, selfLen) do -- avoid if statements each iteration
+		for j: number = max(i - factorLen, 1), min(i, selfLen) do
 			p += selfLimbs[j] * factorLimbs[iplus - j]
+			--[[if p > 2^53 then
+				print("oops")
+			end]]
 		end
-		
-		if p > BASE then
+
+		-- apply carry to current limb
+		if p >= BASE then
 			carry = p // BASE
 			p %= BASE
 		else
 			carry = 0
 		end
-		
+
 		rLimbs[i] = p
 	end
 	
@@ -704,7 +695,11 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 		end
 		
 		StripLeadingZeros(quotient)
-
+		--[[if carry == 0 then
+			return quotient, AptInt.new()
+		end
+		
+		local remainder = CorrectRemainder(self, divisor, AptInt.new({carry}))]]
 		return quotient, AptInt.new({carry})
 	end
 
@@ -817,13 +812,12 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 	if not sameSign then
 		quotient:Negate(true)
 	end
-
+	
 	return quotient, Un
 end
 
 -- Returns a new AptInt equal to <code>a % b</code>.
 function AptInt:ModRaw(div: AptInt): AptInt
-	--> TODO: THIS IS REAAAAALLY UGLY.
 	local divLimbs: {number}, selfLimbs: {number} = div.limbs, self.limbs
 	
 	local selfSign: number, divSign: number = self.signum, div.signum
@@ -832,7 +826,6 @@ function AptInt:ModRaw(div: AptInt): AptInt
 	local selfFirst: number = selfLimbs[1] * selfSign
 	
 	--> CASES
-	print(#divLimbs, #selfLimbs)
 	if divSign == 0 or (#divLimbs == 1 and abs(divFirst) == 1) then
 		return AptInt.new()
 	elseif #selfLimbs == 1 and #divLimbs == 1 then
@@ -840,7 +833,6 @@ function AptInt:ModRaw(div: AptInt): AptInt
 	end
 	
 	local _: AptInt, r: AptInt = self:DivideRaw(div)
-	print(selfSign, divSign)
 	return r
 end
 
@@ -928,7 +920,7 @@ function AptInt:ToString(): string
 	
 	local clone: {number} = tclone(limbs)
 	
-	--> we convert from base 2^26 to decimal
+	--> we convert from base 2^25 to decimal
 	while #clone > 0 do
 		local carry: number = 0
 
