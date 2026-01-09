@@ -64,6 +64,7 @@ local brshift: (number, number) -> number = bit32.rshift
 local tcreate: <V>(number, V?) -> {V} = table.create
 local tinsert: <V>({V}, V) -> () & <V>({V}, number, V) -> () = table.insert
 local tremove: <V>({V}, number?) -> V? = table.remove
+local tconcat: <V>({V}, string?, number?, number?) ->string = table.concat
 local tmove: <V>({V}, number, number, number, {V}?) -> {V} = table.move
 local tclone: <T>({T}) -> {T} = table.clone
 
@@ -94,7 +95,7 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 
 		local i: number = #str
 		local arr: {number} = {}
-		
+
 		repeat
 			local chars: string = str:sub(max(i - BASE_POW + 1, strStart), i)
 			local num: number? = tonumber(chars)
@@ -126,12 +127,7 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 		return arr, actualSign
 	end,
 
-	["table"] = function(tbl: {any}): ({number}, number)
-		local first: any = tbl[1]
-		if not first then
-			return {0}, 0
-		end
-		
+	["table"] = function(tbl: {any}): ({number}, number)	
 		return tbl, 1
 	end,
 
@@ -248,20 +244,20 @@ local function MultiplyToomCook3(x: AptInt, y: AptInt): AptInt
 		db1:AddRaw(db1, true):SubtractRaw(y0, true), true
 	)
 	
-	--> all divisions here are single-limb, so they are O(n).
+	--> all divisions here are single-limb, so they are linear.
 	local vinf: AptInt = x2:MultiplyRaw(y2, true)
-	local t2: AptInt = v2:SubtractRaw(vm1, true):DivideRaw(AP_THREE, true)
+	v2:SubtractRaw(vm1, true):DivideRaw(AP_THREE, true)
 	local tm1: AptInt = v1:SubtractRaw(vm1):DivideRaw(AP_TWO, true)
-	local t1: AptInt = v1:SubtractRaw(v0, true)
+	v1:SubtractRaw(v0, true)
 	
-	t2 = t2:SubtractRaw(t1, true):DivideRaw(AP_TWO, true) 
-	t1 = t1:SubtractRaw(tm1, true):SubtractRaw(vinf, true)
-	t2 = t2:SubtractRaw(vinf:AddRaw(vinf), true)
-	tm1 = tm1:SubtractRaw(t2, true)
+	v2:SubtractRaw(v1, true):DivideRaw(AP_TWO, true) 
+	v1:SubtractRaw(tm1, true):SubtractRaw(vinf, true)
+	v2:SubtractRaw(vinf:AddRaw(vinf), true)
+	tm1:SubtractRaw(v2, true)
 	
 	local result: AptInt = vinf
-		:LeftShift(k):AddRaw(t2, true)
-		:LeftShift(k):AddRaw(t1, true)
+		:LeftShift(k):AddRaw(v2, true)
+		:LeftShift(k):AddRaw(v1, true)
 		:LeftShift(k):AddRaw(tm1, true)
 		:LeftShift(k):AddRaw(v0, true)
 	
@@ -276,16 +272,14 @@ end
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
 	local selfSign: number, divSign: number = self.signum, divisor.signum
 	local sameSign: boolean = selfSign == divSign
-
-	if sameSign then
-		if divSign == -1 then
-			return remainder:Negate(true)
-		end
-
+	
+	if sameSign and divSign == -1 then
+		remainder.signum = -1
 		return remainder
 	elseif selfSign == 1 and divSign == -1 and remainder.signum ~= 0 then
 		return divisor:AddRaw(remainder)
-	elseif remainder.signum ~= 0 then
+	elseif not sameSign and remainder.signum ~= 0 then -- selfsign -1, divsign 1
+		remainder.signum = 1
 		return divisor:SubtractRaw(remainder)
 	end
 
@@ -303,13 +297,16 @@ end
 
 local function LowerThanAbsolute(x: AptInt, y: AptInt): boolean
 	local xLimbs: {number}, yLimbs: {number} = x.limbs, y.limbs
-
-	if #xLimbs < #yLimbs then
+	
+	local xLen: number, yLen: number = #xLimbs, #yLimbs
+	if xLen < yLen then
 		return true
+	elseif yLen < xLen then
+		return false
 	end
 
-	for i: number = #xLimbs, 1, -1 do
-		local xDigit: number, yDigit: number = xLimbs[i], yLimbs[i] or 0
+	for i: number = xLen, 1, -1 do
+		local xDigit: number, yDigit: number = xLimbs[i], yLimbs[i]
 		if xDigit == yDigit then continue end
 
 		return xDigit < yDigit
@@ -557,14 +554,14 @@ function AptInt:MultiplyRaw(factor: AptInt, inPlace: boolean?): AptInt
 		return AptInt.new()
 	end
 
-	local selflimbs: {number} = self.limbs
-	local factorlimbs: {number} = factor.limbs
-	local factorLen: number = #factorlimbs
-	local selfLen: number = #selflimbs
+	local selfLimbs: {number} = self.limbs
+	local factorLimbs: {number} = factor.limbs
+	local factorLen: number = #factorLimbs
+	local selfLen: number = #selfLimbs
 
 	--> single limb multiplication
 	if factorLen == 1 then
-		local mul: number = factorlimbs[1]
+		local mul: number = factorLimbs[1]
 		local result: AptInt = (inPlace and self or self:clone())
 		
 		if mul == 1 then 
@@ -576,11 +573,17 @@ function AptInt:MultiplyRaw(factor: AptInt, inPlace: boolean?): AptInt
 		local rLimbs: {number} = result.limbs
 
 		local carry: number = 0
-		for i: number, limb: number in selflimbs do
+		for i: number, limb: number in selfLimbs do
 			local p: number = limb * mul + carry
-
-			carry = p // BASE
-			rLimbs[i] = p % BASE
+			
+			if p > BASE then
+				carry = p // BASE
+				p %= BASE
+			else
+				carry = 0
+			end
+			
+			rLimbs[i] = p
 		end
 
 		if carry > 0 then
@@ -605,17 +608,24 @@ function AptInt:MultiplyRaw(factor: AptInt, inPlace: boolean?): AptInt
 	local carry: number = 0
 	factorLen -= 1
 	for i: number = 1, len do
-		local sum: number = carry
+		local p: number = carry
 		local iplus: number = i + 1
 		
-		for j: number = max(i - factorLen, 1), min(i, selfLen) do -- do this to avoid if checks each iteration
-			sum += selflimbs[j] * factorlimbs[iplus - j]
+		for j: number = max(i - factorLen, 1), min(i, selfLen) do
+			p += selfLimbs[j] * factorLimbs[iplus - j]
 		end
-		
-		rLimbs[i] = sum % BASE
-		carry = sum // BASE
-	end
 
+		-- apply carry to current limb
+		if p >= BASE then
+			carry = p // BASE
+			p %= BASE
+		else
+			carry = 0
+		end
+
+		rLimbs[i] = p
+	end
+	
 	StripLeadingZeros(result)
 	result.signum = selfSign * factorSign
 	return result
@@ -624,6 +634,7 @@ end
 -- Returns the quotient and remainder of a / b.
 function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 	--> we use knuths algorithm D for division
+	--> its a very lengthy and ugly algorithm
 
 	local divSign: number, selfSign: number = divisor.signum, self.signum
 	local sameSign: boolean = divSign == selfSign
@@ -673,8 +684,12 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 		end
 		
 		StripLeadingZeros(quotient)
-
-		return quotient, AptInt.new({carry})
+		if carry == 0 then
+			return quotient, AptInt.new()
+		end
+		
+		local remainder = CorrectRemainder(self, divisor, AptInt.new({carry}))
+		return quotient, remainder
 	end
 
 	--> d0. defs
@@ -773,9 +788,8 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 
 	for i: number = #UnLimbs, 1, -1 do
 		local x: number = carry * BASE + UnLimbs[i]
-		local rDigit: number = x // D
 		
-		carry = x % D :: number
+		carry = x % D 
 		UnLimbs[i] = x // D
 	end
 	
@@ -787,33 +801,28 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 	if not sameSign then
 		quotient:Negate(true)
 	end
-
+	
 	return quotient, Un
 end
 
 -- Returns a new AptInt equal to <code>a % b</code>.
 function AptInt:ModRaw(div: AptInt): AptInt
-	--> TODO: THIS IS REAAAAALLY UGLY.
-	local divLimbs: {number} = div.limbs
-	local divLimbAmount: number, selfLimbAmount: number = #divLimbs, #(self :: AptInt).limbs
-
+	local divLimbs: {number}, selfLimbs: {number} = div.limbs, self.limbs
+	
 	local selfSign: number, divSign: number = self.signum, div.signum
 
 	local divFirst: number = divLimbs[1] * divSign
-	local selfFirst: number = self.limbs[1] * selfSign
+	local selfFirst: number = selfLimbs[1] * selfSign
 	
 	--> CASES
-	if divSign == 0 or (divLimbAmount == 1 and abs(divFirst) == 1) then
+	if divSign == 0 or (#divLimbs == 1 and abs(divFirst) == 1) then
 		return AptInt.new()
-	elseif selfLimbAmount == 1 and divLimbAmount == 1 then
-		return AptInt.new({selfFirst % divFirst})
-	elseif divLimbAmount ~= 1 then
-		local _: AptInt, r: AptInt = self:DivideRaw(div)
-		return r
+	elseif #selfLimbs == 1 and #divLimbs == 1 then
+		return AptInt.new(selfFirst % divFirst)
 	end
-
-	--> single limb divisor optimizations
 	
+	--> single limb divisor optimizations
+
 	local success: boolean, mod: number = TryModExp(selfFirst, divFirst, 2) -- 2
 	if success then return AptInt.new({mod}) end
 
@@ -920,6 +929,7 @@ function AptInt:ToString(): string
 	return str
 end
 
+
 -- Returns a double equal to <code>tonumber(x)</code>
 function AptInt:ToNumber(): number
 	return tonumber(self:ToString()) :: number -- faster than doing math.log10 stuff and blablabla
@@ -973,13 +983,13 @@ function AptInt:LowerOrEqualToRaw(num: AptInt): boolean
 		return true
 	end
 
-	local selflimbs: {number}, numlimbs: {number} = self.limbs, num.limbs
+	local selfLimbs: {number}, numlimbs: {number} = self.limbs, num.limbs
 	if bothNegative then
-		selflimbs, numlimbs = numlimbs, selflimbs
+		selfLimbs, numlimbs = numlimbs, selfLimbs
 	end
 	
-	for i: number = #selflimbs, 1, -1 do
-		local sDigit: number, nDigit: number = selflimbs[i], numlimbs[i] or 0
+	for i: number = #selfLimbs, 1, -1 do
+		local sDigit: number, nDigit: number = selfLimbs[i], numlimbs[i] or 0
 		if sDigit == nDigit then continue end
 		return sDigit <= nDigit
 	end
