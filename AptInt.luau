@@ -77,6 +77,7 @@ local sformat: (string, ...unknown) -> string = string.format
 local KARATSUBA_THRESHOLD: number = 45 -- in limbs, limit where karatsuba is faster than normal multiplication
 local SQRT_KARATSUBA_THRESHOLD: number = 32
 local TOOM_THRESHOLD: number = 90
+local BURNIKEL_THRESHOLD: number = 80
 
 local BASE_POW: number = 7 -- MUST SATISFY: 10^(BASE_POW*2) < 2^53, because of multiplyraw and divideraw
 local BASE: number = 10 ^ BASE_POW
@@ -154,6 +155,15 @@ local function StripLeadingZeros(n: AptInt)
 	end
 end
 
+local function ForceNotEmpty(n: AptInt)
+	if #n.limbs == 0 then
+		tinsert(n.limbs, 0)
+		return
+	end
+	
+	return
+end
+
 local function ArgumentToAptInt(num: ValidMetamethodArgument?, errContext: string): AptInt
 	local bigint: AptInt;
 
@@ -174,25 +184,40 @@ local function ArgumentToAptInt(num: ValidMetamethodArgument?, errContext: strin
 	return bigint
 end
 
--- Split a digit into its low "d" limbs and its high limbs. For example, split_at(12345, 3) 
--- will extract the 3 final limbs, giving: high=12, low=345.
-local function GetKaratsubaLower(int: AptInt, n: number): AptInt
+--> these functions esentially do the same thing. this is horrible code, but i dont wanna refactor it.
+
+--> get highest n limbs
+local function GetLower(int: AptInt, n: number): AptInt
 	return AptInt.new(tmove(int.limbs, 1, n, 1, {}))
 end
 
-local function GetKaratsubaUpper(int: AptInt, n: number): AptInt
+--> get lowest n limsb
+local function GetUpper(int: AptInt, n: number): AptInt
 	return AptInt.new(tmove(int.limbs, n+1, #int.limbs, 1, {}))
 end
 
-local function GetToomSlice(n: AptInt, startIdx: number, endIdx: number)
+--> get limbs from startIdx to endIdx
+local function GetSlice(n: AptInt, startIdx: number, endIdx: number)
 	return AptInt.new(tmove(n.limbs, startIdx, endIdx, 1, {}))
+end
+
+--> Used in Burnikel-Ziegler division
+local function GetBlock(A: AptInt, blockIdx: number, n: number): AptInt
+	local startIdx: number = blockIdx * n + 1
+	local endIdx: number = min((blockIdx + 1) * n, #A.limbs)
+	
+	if startIdx > #A.limbs then
+		return AptInt.new(0)
+	end
+
+	return AptInt.new(tmove(A.limbs, startIdx, endIdx, 1, {}))
 end
 
 local function MultiplyKaratsuba(x: AptInt, y: AptInt): AptInt
 	local m2: number = (max(#x.limbs, #y.limbs) + 1)//2
 
-	local low1: AptInt, low2: AptInt = GetKaratsubaLower(x, m2), GetKaratsubaLower(y, m2)
-	local high1: AptInt, high2: AptInt = GetKaratsubaUpper(x, m2), GetKaratsubaUpper(y, m2)
+	local low1: AptInt, low2: AptInt = GetLower(x, m2), GetLower(y, m2)
+	local high1: AptInt, high2: AptInt = GetUpper(x, m2), GetUpper(y, m2)
 
 	local z0: AptInt = low1:MultiplyRaw(low2)
 	local z1: AptInt = low1:AddRaw(high1):MultiplyRaw(low2:AddRaw(high2, true))
@@ -222,11 +247,11 @@ local function MultiplyToomCook3(x: AptInt, y: AptInt): AptInt
 	local r: number = largest*2//3
 	
 	-- get slices
-	local x0: AptInt, x1: AptInt = GetToomSlice(x, 1, k), GetToomSlice(x, k+1, r)
-	local x2: AptInt = GetToomSlice(x, r+1, largest)
+	local x0: AptInt, x1: AptInt = GetSlice(x, 1, k), GetSlice(x, k+1, r)
+	local x2: AptInt = GetSlice(x, r+1, largest)
 	
-	local y0: AptInt, y1: AptInt = GetToomSlice(y, 1, k), GetToomSlice(y, k+1, r)
-	local y2: AptInt = GetToomSlice(y, r+1, largest)
+	local y0: AptInt, y1: AptInt = GetSlice(y, 1, k), GetSlice(y, k+1, r)
+	local y2: AptInt = GetSlice(y, r+1, largest)
 	
 	local v0: AptInt = x0:MultiplyRaw(y0)
 	local da1: AptInt = x2:AddRaw(x0)
@@ -245,7 +270,7 @@ local function MultiplyToomCook3(x: AptInt, y: AptInt): AptInt
 	)
 	
 	--> all divisions here are single-limb, so they are linear.
-	local vinf: AptInt = x2:MultiplyRaw(y2, true)
+	local vinf: AptInt = x2:MultiplyRaw(y2)
 	v2:SubtractRaw(vm1, true):DivideRaw(AP_THREE, true)
 	local tm1: AptInt = v1:SubtractRaw(vm1):DivideRaw(AP_TWO, true)
 	v1:SubtractRaw(v0, true)
@@ -268,36 +293,9 @@ local function MultiplyToomCook3(x: AptInt, y: AptInt): AptInt
 	return result
 end
 
---> divsion stuff
-local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
-	local selfSign: number, divSign: number = self.signum, divisor.signum
-	local sameSign: boolean = selfSign == divSign
-	
-	if sameSign and divSign == -1 then
-		remainder.signum = -1
-		return remainder
-	elseif selfSign == 1 and divSign == -1 and remainder.signum ~= 0 then
-		return divisor:AddRaw(remainder)
-	elseif not sameSign and remainder.signum ~= 0 then -- selfsign -1, divsign 1
-		remainder.signum = 1
-		return divisor:SubtractRaw(remainder)
-	end
-
-	return remainder
-end
-
-local function TryModExp(limb: number, div: number, base: number): (boolean, number)
-	local log: number = log(div, base)
-	if log ~= floor(log) or log > BASE_POW then -- log > BASE_POW since each power we check 1 more digit
-		return false, 0
-	end	
-
-	return true, limb % div
-end
-
 local function LowerThanAbsolute(x: AptInt, y: AptInt): boolean
 	local xLimbs: {number}, yLimbs: {number} = x.limbs, y.limbs
-	
+
 	local xLen: number, yLen: number = #xLimbs, #yLimbs
 	if xLen < yLen then
 		return true
@@ -331,6 +329,266 @@ local function EqualsAbsolute(x: AptInt, y: AptInt): boolean
 	return true 
 end
 
+--> divsion stuff
+local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
+	local selfSign: number, divSign: number = self.signum, divisor.signum
+	local sameSign: boolean = selfSign == divSign
+	
+	if sameSign and divSign == -1 then
+		remainder.signum = -1
+		return remainder
+	elseif selfSign == 1 and divSign == -1 and remainder.signum ~= 0 then
+		return divisor:AddRaw(remainder)
+	elseif not sameSign and remainder.signum ~= 0 then -- selfsign -1, divsign 1
+		remainder.signum = 1
+		return divisor:SubtractRaw(remainder)
+	end
+
+	return remainder
+end
+
+--> KNUTHS
+local function DivKnuths(self: AptInt, divisor: AptInt)
+	--> d0. defs
+	local U: {number}, V: {number} = self.limbs, divisor.limbs
+	
+	local n: number = #V
+	local m: number = #U - n
+	
+	--> d1. normalize (get Vn and Un)
+	local D: number = BASE // (V[n] + 1)
+	local Dint: AptInt = AptInt.new({D})
+
+	local Vn: {number} = divisor:MultiplyRaw(Dint).limbs
+	local Un: AptInt = self:MultiplyRaw(Dint)
+	local UnLimbs: {number} = Un.limbs
+
+	local Vnn: number = Vn[n]
+	local penultimateVn: number = Vn[n-1] or 0
+
+	local quotient: AptInt = AptInt.new(tcreate(m + 1, 0))
+	local qLimbs: {number} = quotient.limbs
+
+	--> d2. init j
+	local qhat: number, rhat: number = 0, 0
+	for j: number = m, 0, -1 do
+		--> d3. calculate qhat and rhat
+
+		-- bigints for qhat and rhat are not needed, because un[x] is at most BASE
+		-- currently, BASE * BASE + BASE < 2^53
+		local nPlusJ: number = n + j + 1
+		local top: number = (UnLimbs[nPlusJ] or 0) * BASE + (UnLimbs[nPlusJ - 1] or 0)
+		qhat = top // Vnn
+		rhat = top % Vnn
+
+		if qhat == 0 then continue end
+
+		--> first correction
+		if qhat * penultimateVn > rhat * BASE + (UnLimbs[nPlusJ - 2] or 0) then
+			qhat -= 1
+			rhat += Vnn
+
+			--> second correction
+			if rhat < BASE and qhat * penultimateVn > rhat * BASE + (UnLimbs[nPlusJ - 2] or 0) then
+				qhat -= 1
+			end
+		end
+
+		--> d4. multiply & subtract
+		local carry: number = 0
+		local borrow: number = 0
+
+		for i: number = 1, n do
+			local p: number = qhat * Vn[i] + carry
+			carry = p // BASE
+			local pDigit: number = p % BASE
+
+			local diff: number = UnLimbs[i + j] - pDigit - borrow
+			if diff < 0 then
+				borrow = 1
+				diff += BASE
+			else
+				borrow = 0
+			end
+
+			UnLimbs[i + j] = diff
+		end
+
+		local lastSub: number = (UnLimbs[nPlusJ] or 0) - carry - borrow
+		UnLimbs[nPlusJ] = lastSub
+
+		--> d6. add back
+		if lastSub >= 0 then
+			qLimbs[j + 1] = qhat
+			continue
+		end
+
+		qLimbs[j + 1] = qhat - 1
+		carry = 0
+
+		for i: number = 1, n do
+			local sum: number = UnLimbs[i + j] + Vn[i] + carry
+
+			if sum >= BASE then
+				carry = 1
+				sum -= BASE
+			else
+				carry = 0
+			end
+
+			UnLimbs[i + j] = sum
+		end
+
+		UnLimbs[nPlusJ] = (UnLimbs[nPlusJ] + carry) % BASE
+	end
+
+	--> d8. unnormalize
+	local carry: number = 0
+
+	for i: number = #UnLimbs, 1, -1 do
+		local x: number = carry * BASE + UnLimbs[i]
+
+		carry = x % D 
+		UnLimbs[i] = x // D
+	end
+
+	StripLeadingZeros(Un)
+	StripLeadingZeros(quotient)
+
+	--> return
+	Un = CorrectRemainder(self, divisor, Un)
+	if self.signum ~= divisor.signum then
+		quotient:Negate(true)
+	end
+
+	return quotient, Un
+end
+
+--> BURNIKEL ZIEGLER
+local function DivBZ3n2n(a1a2: AptInt, a3: AptInt, b1: AptInt, b2: AptInt): (AptInt, AptInt)
+	--> Algorithm 2 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
+	local half: number = #a1a2.limbs//2
+	local n: number = #b2.limbs
+	
+	local a1: AptInt, a2: AptInt = GetUpper(a1a2, half), GetLower(a1a2, half)
+	
+	local q: AptInt, r1: AptInt
+	if a1:LowerThanRaw(b1) then
+		q, r1 = DivBZ2n1n(a1a2, b1)
+	else
+		q = AptInt.new(tcreate(n, BASE-1)) -- q = beta^n-1
+		r1 = a1a2:SubtractRaw(q:MultiplyRaw(b1))
+	end
+	
+	local D: AptInt = q:MultiplyRaw(b2)
+	local R: AptInt = r1:LeftShift(n):AddRaw(a3):SubtractRaw(D) -- paper says a4 but its actually a3
+	
+	--> q too large by atleast 1
+	local B: AptInt = b1:LeftShift(n):AddRaw(b2) -- [b1, b2]
+	while R.signum == -1 do
+		q:SubtractRaw(AP_ONE, true)
+		R:AddRaw(B, true)
+	end
+	
+	return q, R
+end
+
+function DivBZ2n1n(n: AptInt, b: AptInt): (AptInt, AptInt)
+	--> this function has to be global because of its use in DivBZ3n2n.
+	--> Algorithm 1 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
+	local nLen: number = #b.limbs
+	if bband(nLen, 1) == 1 or nLen < BURNIKEL_THRESHOLD then
+		if not LowerThanAbsolute(n, b) then
+			return DivKnuths(n, b)
+		end
+
+		return AptInt.new(), b:clone()
+	end
+	
+	local nHalf: number = (nLen-1)//2
+	
+	local a1a2: AptInt, AL: AptInt = GetUpper(n, nHalf), GetLower(n, nHalf)
+	local ALlen: number = #AL.limbs
+	local a3: AptInt, a4: AptInt = GetUpper(AL, ALlen//2), GetLower(AL, ALlen//2)
+	
+	local b1: AptInt, b2: AptInt = GetUpper(b, nHalf), GetLower(b, nHalf)
+	
+	--> get q1,R
+	local q1: AptInt, r: AptInt = DivBZ3n2n(a1a2, a3, b1, b2)
+	local q2: AptInt, S: AptInt = DivBZ3n2n(r, a4, b1, b2)
+	
+	--> get Q
+	
+	--> dont leftshift if q2 == 0
+	local q2Limbs: {number} = q2.limbs
+	if #q2Limbs == 1 and q2Limbs[1] == 0 then
+		return q1, S
+	end
+	
+	local Q: AptInt = q1:LeftShift(nHalf):AddRaw(q2) -- Q = [q1,q2]
+	return Q, S
+end
+
+local function DivBurnikelZiegler(A: AptInt, B: AptInt): (AptInt, AptInt)
+	--> https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
+	--> https://github.com/wyndavies/LongInteger/blob/master/LongIntegers/LongInteger.cpp#L3128
+	local s: number = #B.limbs
+	local r: number = #A.limbs
+	
+	--> 1. set m to the next power of 2 abov the len of B 
+	local m: number = 2^ceil(log(s-1, 2)) 
+	
+	local j: number = ceil(s/m)
+	local n: number = j * m
+	
+	--> 3. set sigma to normalize B and A, so that B[#B] >= BASE/2
+	--> sigma is single-limb, so multiplication here is linear.
+	local sigma: AptInt = AptInt.new(
+		max((BASE-1) // B.limbs[s], 1)
+	)
+	
+	local shift = n-s
+	
+	B = B:MultiplyRaw(sigma):LeftShift(shift); s = #B.limbs
+	A = A:MultiplyRaw(sigma):LeftShift(shift); r = #A.limbs
+	
+	--> 5. calculate t: how many n-sized chunks are in A, t >= 2
+	local t: number = max(ceil(r / n), 2)
+	
+	--> 6. init z
+	local a1: AptInt, a2: AptInt = GetBlock(A, t-1, n), GetBlock(A, t-2, n)
+	local z: AptInt = a1:LeftShift(n):AddRaw(a2) -- z = [a1, a2].
+	
+	--> 7. for i = t - 2, 1 do
+	local quotient: AptInt = AptInt.new()
+	local first: number = t-2
+	for i: number = t-2, 0, -1 do
+		--> 8a. qi, ri
+		local qi: AptInt, ri: AptInt = DivBZ2n1n(z, B)
+		
+		--> 8b. z = [ri, a_i-1]
+		--> a_i-1 = r - t*(i-1)...r-t
+		local ai1: AptInt = GetBlock(A, i-1, n)
+		z = ri:LeftShift(n):AddRaw(ai1)
+		print(qi, ri)
+		print(i)
+		if i == first then quotient = qi continue end -- dont shift for first
+		quotient = quotient:LeftShift(n):AddRaw(qi)
+	end
+	
+	z = z:DivideRaw(sigma)
+	return quotient, z
+end
+
+local function TryModExp(limb: number, div: number, base: number): (boolean, number)
+	local log: number = log(div, base)
+	if log ~= floor(log) or log > BASE_POW then -- log > BASE_POW since each power we check 1 more digit
+		return false, 0
+	end	
+
+	return true, limb % div
+end
+
 --> SQRT STUFF
 local function NewtonHeronSqrt(n: AptInt): AptInt
 	local prev2: AptInt = AP_NEG_ONE:clone()
@@ -354,8 +612,6 @@ local function NewtonHeronSqrt(n: AptInt): AptInt
 end
 
 local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
-	--> NOTE: even tho we dont have burnikel-ziegler division, this is still faster by a ton
-	
 	-- https://gmplib.org/manual/Square-Root-Algorithm
 	-- https://en.wikipedia.org/wiki/Integer_square_root#Karatsuba_square_root_algorithm
 	if n.signum ~= 1 then
@@ -368,36 +624,30 @@ local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
 		local sq = NewtonHeronSqrt(n)
 		return sq, n:SubtractRaw(sq:MultiplyRaw(sq))
 	end
-	
-	--> split must be even
-	if bband(limbLen, 1) == 1 then
-		limbLen += 1
-	end
-	
+
 	--> calculate a3, a2, a1 and a0
-	local m2: number = ceil(limbLen / 2)
-	if bband(m2, 1) == 1 then m2 += 1 end -- split must be even
-	local m: number = m2 / 2
+	local m: number = (limbLen + 1)//4
+	local m2: number = m*2
 	
-	local a3a2: AptInt, a1a0: AptInt = GetKaratsubaUpper(n, m2), GetKaratsubaLower(n, m2)
-	local a1: AptInt, a0: AptInt = GetKaratsubaUpper(a1a0, m), GetKaratsubaLower(a1a0, m)
+	local a3a2: AptInt, a1a0: AptInt = GetUpper(n, m2), GetLower(n, m2)
+	local a1: AptInt, a0: AptInt = GetUpper(a1a0, m), GetLower(a1a0, m)
 	
 	local s1: AptInt, r1: AptInt = KaratsubaSqrt(a3a2)
 	--local r1 = a3a2:SubtractRaw(s1:MultiplyRaw(s1))
 	
 	--> divrem (r1*b + a1, 2*s1)
 	local q, u: AptInt = 
-		r1:LeftShift(m):AddRaw(a1, true)
-		:DivideRaw(s1:AddRaw(s1), true)
+		r1:LeftShift(m):AddRaw(a1)
+		:DivideRaw(s1:AddRaw(s1))
 
 	--> get sqrt and correct
-	local s: AptInt = s1:LeftShift(m):AddRaw(q, true) -- s=s1*b+q
+	local s: AptInt = s1:LeftShift(m):AddRaw(q) -- s=s1*b+q
 
-	local r: AptInt = n:SubtractRaw(s:MultiplyRaw(s))
+	local r: AptInt = u:LeftShift(m):AddRaw(a0):SubtractRaw(q:MultiplyRaw(q))
 	
 	if r.signum == -1 then
-		r:AddRaw(s:AddRaw(s), true):SubtractRaw(AP_ONE, true)
-		s:SubtractRaw(AP_ONE, true)
+		r=r:AddRaw(s:AddRaw(s)):SubtractRaw(AP_ONE)
+		s=s:SubtractRaw(AP_ONE)
 	end
 	
 	return s, r
@@ -691,118 +941,12 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 		local remainder = CorrectRemainder(self, divisor, AptInt.new({carry}))
 		return quotient, remainder
 	end
-
-	--> d0. defs
-	local n: number = #V
-	local m: number = #U - n
-
-	--> d1. normalize (get Vn and Un)
-	local D: number = BASE // (V[n] + 1)
-	local Dint: AptInt = AptInt.new({D})
-
-	local Vn: {number} = divisor:MultiplyRaw(Dint).limbs
-	local Un: AptInt = (self :: AptInt):MultiplyRaw(Dint)
-	local UnLimbs: {number} = Un.limbs
-
-	local Vnn: number = Vn[n]
-	local penultimateVn: number = Vn[n-1] or 0
-
-	local quotient: AptInt = AptInt.new(tcreate(m + 1, 0))
-	local qLimbs: {number} = quotient.limbs
-
-	--> d2. init j
-	local qhat: number, rhat: number = 0, 0
-	for j: number = m, 0, -1 do
-		--> d3. calculate qhat and rhat
-
-		-- bigints for qhat and rhat are not needed, because un[x] is at most BASE
-		-- currently, BASE * BASE + BASE < 2^53
-		local nPlusJ: number = n + j + 1
-		local top: number = (UnLimbs[nPlusJ] or 0) * BASE + (UnLimbs[nPlusJ - 1] or 0)
-		qhat = top // Vnn
-		rhat = top % Vnn
-
-		if qhat == 0 then continue end
-
-		--> first correction
-		if qhat * penultimateVn > rhat * BASE + (UnLimbs[nPlusJ - 2] or 0) then
-			qhat -= 1
-			rhat += Vnn
-
-			--> second correction
-			if rhat < BASE and qhat * penultimateVn > rhat * BASE + (UnLimbs[nPlusJ - 2] or 0) then
-				qhat -= 1
-			end
-		end
-
-		--> d4. multiply & subtract
-		local carry: number = 0
-		local borrow: number = 0
-
-		for i: number = 1, n do
-			local p: number = qhat * Vn[i] + carry
-			carry = p // BASE
-			local pDigit: number = p % BASE
-
-			local diff: number = UnLimbs[i + j] - pDigit - borrow
-			if diff < 0 then
-				borrow = 1
-				diff += BASE
-			else
-				borrow = 0
-			end
-
-			UnLimbs[i + j] = diff
-		end
-
-		local lastSub: number = (UnLimbs[nPlusJ] or 0) - carry - borrow
-		UnLimbs[nPlusJ] = lastSub
-
-		--> d6. add back
-		if lastSub >= 0 then
-			qLimbs[j + 1] = qhat
-			continue
-		end
-
-		qLimbs[j + 1] = qhat - 1
-		carry = 0
-
-		for i: number = 1, n do
-			local sum: number = UnLimbs[i + j] + Vn[i] + carry
-
-			if sum >= BASE then
-				carry = 1
-				sum -= BASE
-			else
-				carry = 0
-			end
-
-			UnLimbs[i + j] = sum
-		end
-
-		UnLimbs[nPlusJ] = (UnLimbs[nPlusJ] + carry) % BASE
-	end
-
-	--> d8. unnormalize
-	local carry: number = 0
-
-	for i: number = #UnLimbs, 1, -1 do
-		local x: number = carry * BASE + UnLimbs[i]
-		
-		carry = x % D 
-		UnLimbs[i] = x // D
-	end
 	
-	StripLeadingZeros(Un)
-	StripLeadingZeros(quotient)
+	--[[if #V > BURNIKEL_THRESHOLD and #U > BURNIKEL_THRESHOLD then
+		return DivBurnikelZiegler(self, divisor)
+	end]]
 
-	--> return
-	Un = CorrectRemainder(self, divisor, Un)
-	if not sameSign then
-		quotient:Negate(true)
-	end
-	
-	return quotient, Un
+	return DivKnuths(self, divisor)
 end
 
 -- Returns a new AptInt equal to <code>a % b</code>.
@@ -853,7 +997,8 @@ function AptInt:PowRaw(pow: AptInt)
 	elseif #selfLimbs == 1 and selfLimbs[1] == 1 then
 		return AP_ONE:clone()
 	end
-
+	
+	local old = self:clone()
 	local result: AptInt = AP_ONE:clone()
 	local selfClone: AptInt = self:clone()
 
@@ -868,23 +1013,22 @@ function AptInt:PowRaw(pow: AptInt)
 			selfClone = selfClone:MultiplyRaw(selfClone)
 			n = brshift(n, 1)
 		end
-
+		
 		return result
 	end
 
 	--> exponentiation by squaring
 	local powClone: AptInt = pow:clone()
 
-	while AP_ZERO:LowerThanRaw(result) do
+	while powClone.signum == 1 do
 		if bband(powClone.limbs[1], 1) == 1 then
 			result = selfClone:MultiplyRaw(result)
-			--powClone = powClone:SubtractRaw(AP_ONE)
 		end
 
 		selfClone = selfClone:MultiplyRaw(selfClone)
 		powClone = powClone:DivideRaw(AP_TWO)
 	end
-
+	print(old==self)
 	return result
 end
 
