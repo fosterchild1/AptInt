@@ -464,12 +464,11 @@ local function DivBZ3n2n(a1: AptInt, a2: AptInt, a3: AptInt, b1: AptInt, b2: Apt
 	local n: number = #b2.limbs
 	
 	local a1a2: AptInt = a1:LeftShift(n):AddRaw(a2)
-	print(a1.limbs, b1.limbs)
+	--print(a1.limbs, b1.limbs)
 
 	local q: AptInt, r1: AptInt, D: AptInt
 	if a1:LowerThanRaw(b1) then -- step 3a: a1 < b1
 		q, r1 = DivBZ2n1n(a1a2, b1)
-		print(q.limbs, r1.limbs)
 		
 		-- step 4: d = q * b2
 		D = q:MultiplyRaw(b2)
@@ -566,41 +565,50 @@ local function DivBurnikelZiegler(A: AptInt, B: AptInt): (AptInt, AptInt)
 	--> 6. z = [a[t-1], a[t-2]]
 	local z: AptInt, a2: AptInt = GetSlice(aShifted, r-n+1, r), GetSlice(aShifted, r-2*n, r-n)
 	z = z:LeftShift(n):AddRaw(a2)
-	print(z)
 	
 	--> 7. for i = t - 2, 1 do
 	local quotient: AptInt = AptInt.new()
-	for i: number = t-2, 1, -1 do
+	quotient.limbs = {} -- so that the 1st leftshift doesnt offset it by 1
+	for i: number = t-2, 0, -1 do
 		--> 8a. qi, ri
+		--print(#z.limbs, #bShifted.limbs)
+		--print(z)
 		local qi: AptInt, ri: AptInt = DivBZ2n1n(z, bShifted)
 		
-		--> 8b. z = [ri, a_i-1]
-		local ai1: AptInt = GetSlice(aShifted, r-(i)*n+1, r-(i-1)*n)
-		
-		z = ri:LeftShift(n):AddRaw(ai1)
 		quotient = quotient:LeftShift(n):AddRaw(qi)
+		--> 8b. z = [ri, a_i-1]
+		--print(i)
+		if i > 0 then
+			local startIdx: number = max(r - (t - i + 1) * n + 1, 1)
+			local endIdx: number = r - (t - i) * n
+			--print(startIdx,endIdx)
+			local ai1 = GetSlice(aShifted, startIdx, endIdx)
+			--print(ri)
+			--print(#ri.limbs, #ai1.limbs)
+			z = ri:LeftShift(n):AddRaw(ai1)
+		else
+			z = ri
+		end
 	end
-	
-	-- final iteration of step 8: do the loop one more time for i=0
-	local qi: AptInt, ri: AptInt = DivBZ2n1n(z, bShifted)
-	quotient = quotient:AddRaw(qi)
 	
 	--> correct quotient
 	-- for some reason, i dont know why, i would only hope to know why, the quotient size = m
-	-- i have tried for two days straight to fix it, but this bandaid will do for now
-	-- hopefully another coder that understands this paper better can fix it for me
-	-- what this does is calculate size of a/b=h and get upper h limbs from quotient.
+	-- or if its not m its a power of two. i have tried for a week straight to fix it,
+	-- but this bandaid will do for now and probably for the future too.
+	-- hopefully another coder that understands this paper better can fix it for me, but i dont
+	-- think anyones really gonna bother, is anyone even going to read this 5 months from now?
+	-- anyways, what this does is calculate size of a/b=h and get upper h limbs from quotient.
+	-- hopefully thats a good enough fix. from my tests it is
 	 
 	local topA: AptInt = GetSlice(A, r-s+1, r)  -- upper lenB limbs of A
-	print(quotient.limbs)
 	if topA:LowerThanRaw(B) then
 		quotient = GetUpper(quotient, #quotient.limbs - (r - s))
 	else
 		quotient = GetUpper(quotient, #quotient.limbs - (r - s + 1))
-	end
+	end	
 	
-	ri = ri:DivideRaw(sigma)
-	return quotient, ri
+	z = z:DivideRaw(sigma)
+	return quotient, z
 end
 
 local function TryModExp(limb: number, div: number, base: number): (boolean, number)
@@ -905,7 +913,7 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 end
 
 -- Returns the quotient and remainder of a / b.
-function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
+function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	--> we use knuths algorithm D for division
 	--> its a very lengthy and ugly algorithm
 
@@ -938,7 +946,7 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 	if #V == 1 then
 		local div: number = V[1]
 		
-		local quotient: AptInt = (inPlace and self or self:clone())
+		local quotient: AptInt = self:clone()
 		quotient.signum = selfSign/divSign
 		
 		if div == 1 then
@@ -965,12 +973,13 @@ function AptInt:DivideRaw(divisor: AptInt, inPlace: boolean?): (AptInt, AptInt)
 		return quotient, remainder
 	end
 	
-	local quotient: AptInt, remainder: AptInt
+	--[[local quotient: AptInt, remainder: AptInt
 	if #V > BURNIKEL_THRESHOLD and #U > BURNIKEL_THRESHOLD and not inPlace then
 		quotient, remainder = DivBurnikelZiegler(self, divisor)
 	else
 		quotient, remainder = DivKnuths(self, divisor)
-	end
+	end]]
+	local quotient: AptInt, remainder: AptInt = DivKnuths(self, divisor)
 	
 	remainder = CorrectRemainder(self, divisor, remainder)
 	if self.signum ~= divisor.signum then
