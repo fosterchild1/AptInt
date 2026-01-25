@@ -9,19 +9,21 @@ local clock: () -> number = os.clock
 local random: (number?, number?) -> number = math.random
 local insert = table.insert
 
-local MAX = 10^7-1
+local MAX: number = 2^26-1
+local LOG2_10: number = 3.32192809489
 
 local digits: {number} = {1, 50, 100, 500, 1_000, 5_000, 10_000, 50_000, 100_000}
+--local digits: {number} = {100_000}
 
 local function BuildRandomNum(digitCount: number): AptInt
-	if digitCount <= 7 then
+	local len: number = digitCount * LOG2_10/26
+	if digitCount <= 1 then
 		return aptint.new({random(1, 9.99999999^digitCount)})
 	end
 	
-	local len: number = digitCount//7*7
 	local tbl: {number} = {}
 	
-	for i: number = 7, len, 7 do
+	for i: number = 1, len do
 		if i == len then -- avoid leading zeros
 			insert(tbl, random(1, MAX))
 			continue

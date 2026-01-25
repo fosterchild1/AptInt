@@ -80,8 +80,8 @@ local TOOM_THRESHOLD: number = 90
 local BURNIKEL_THRESHOLD: number = 280
 local MIN_BURNIKEL_OFFSET: number = 40
 
-local BASE_POW: number = 7 -- MUST SATISFY: 10^(BASE_POW*2) < 2^53, because of multiplyraw and divideraw
-local BASE: number = 10 ^ BASE_POW
+local BASE_POW: number = 7 -- MUST SATISFY: 2^(BASE_POW*2) < 2^53, because of multiplyraw and divideraw
+local BASE: number = 10 ^ 7
 
 local FORMAT_STRING: string = `%0{BASE_POW}d`
 
@@ -95,9 +95,10 @@ local AP_THREE: AptInt
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 	["string"] = function(str: string): ({number}, number)
 		local isNegative: boolean = str:sub(1, 1) == "-"
-		local strStart: number = isNegative and 2 or 1
+		if isNegative then
+			str = str:sub(2)
+		end
 
-		local i: number = #str
 		local arr: {number} = {}
 
 		repeat
@@ -105,9 +106,10 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 			local num: number? = tonumber(chars)
 			if not num then break end
 
-			i -= BASE_POW
-			tinsert(arr, num)
-		until i < strStart
+			tinsert(arr, carry)
+			
+			str = (#out > 0) and tconcat(out) or "0"
+		end
 
 		return arr, (isNegative and -1 or 1)
 	end,
@@ -339,7 +341,7 @@ end
 
 --> divsion stuff
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
-	local selfSign: number, divSign: number = self.signum, divisor.signum
+	--[[local selfSign: number, divSign: number = self.signum, divisor.signum
 	local sameSign: boolean = selfSign == divSign
 	
 	if sameSign and divSign == -1 then
@@ -350,7 +352,7 @@ local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt
 	elseif not sameSign and remainder.signum ~= 0 then -- selfsign -1, divsign 1
 		remainder.signum = 1
 		return divisor:SubtractRaw(remainder)
-	end
+	end]]
 
 	return remainder
 end
@@ -1079,7 +1081,6 @@ end
 
 -- Returns a new string representation of an AptInt
 function AptInt:ToString(): string
-	local str: string = (self.signum == -1 and "-" or "")
 	if self.signum == 0 then
 		return "0"
 	end
@@ -1091,8 +1092,8 @@ function AptInt:ToString(): string
 	for i: number = #limbs - 1, 1, -1 do
 		str ..= sformat(FORMAT_STRING, limbs[i]) -- prepend dem zeros
 	end
-
-	return str
+	
+	return self.signum == -1 and "-"..str or str
 end
 
 
