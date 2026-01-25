@@ -61,8 +61,8 @@ local sign: (number) -> number = math.sign
 local bband: (number, number) -> number = bit32.band
 local brshift: (number, number) -> number = bit32.rshift
 
-local tcreate: (number, number) -> {number} = table.create
-local tinsert: <V>({V}, V) -> () & <V>({V}, number, V) -> () = table.insert
+local tcreate: <V>(number, V) -> {V} = table.create
+local tinsert: <V>({V}, V) -> () = table.insert
 local tremove: ({number}, number?) -> number? = table.remove
 local tconcat: <V>({V}, string?, number?, number?) -> string = table.concat
 local tmove: ({number}, number, number, number, {number}?) -> {number} = table.move
@@ -81,10 +81,10 @@ local BURNIKEL_THRESHOLD: number = 280
 local MIN_BURNIKEL_OFFSET: number = 40
 
 local BASE_POW: number = 24 -- MUST SATISFY: 2^(BASE_POW*2) < 2^53, because of multiplyraw and divideraw
-local BASE: number = 2 ^ BASE_POW -- we use base 2^24 or else multiplication goes over 2^53
-local BASE_MASK: number = BASE - 1 -- 0xFFFFFF
+local BASE: number = 2^24 -- we use base 2^24 or else multiplication goes over 2^53
+local BASE_MASK: number = 0xFFFFFF -- BASE - 1
 
-local FORMAT_STRING: string = `%0{BASE_POW}d`
+local TOSTRING_CHUNK_SIZE: number = 10^8
 
 local AP_NEG_ONE: AptInt
 local AP_ZERO: AptInt
@@ -97,7 +97,7 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 	["string"] = function(str: string): ({number}, number)
 		local isNegative: boolean = str:sub(1, 1) == "-"
 		if isNegative then
-			str = str:sub(2)
+			str = str:sub(2, #str)
 		end
 
 		local arr: {number} = {}
@@ -105,7 +105,7 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 		--> convert from bae 10 to base 2^k
 		while str ~= "0" do
 			local carry: number = 0
-			local out: {string} = {}
+			local out: {number} = {}
 
 			for i: number = 1, #str do
 				local digit: number = tonumber(str:sub(i, i)) or 0
@@ -115,7 +115,7 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 				carry = p % BASE
 
 				if #out == 0 and q == 0 then continue end
-				tinsert(out, tostring(q))
+				tinsert(out, q)
 			end
 
 			tinsert(arr, carry)
@@ -195,7 +195,7 @@ local function ArgumentToAptInt(num: ValidMetamethodArgument?, errContext: strin
 
 		assert(
 			typeConstructors[numType] ~= nil,
-			`attempt to perform ({errContext}) on AptInt and {numType}`
+			`attempt to perform arithmetic ({errContext}) on AptInt and {numType}`
 		)
 
 		bigint = AptInt.new(num :: ValidConstructor)
@@ -495,7 +495,7 @@ local function DivBZ3n2n(a1: AptInt, a2: AptInt, a3: AptInt, b1: AptInt, b2: Apt
 		-- step 4: d = q * b2
 		D = q:MultiplyRaw(b2)
 	else -- step 3b: a1 >= b1
-		q = AptInt.new(tcreate(n, BASE-1)) -- q = beta^n-1
+		q = AptInt.new(tcreate(n, BASE - 1)) -- q = beta^n-1
 		R = a1:SubtractRaw(b1):LeftShift(n):AddRaw(b1):AddRaw(a2) -- - [b1, 0] + [0, b1]
 		
 		-- step 4: D = (b2 << n) - b2
@@ -887,14 +887,14 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 			p += selfLimbs[j] * factorLimbs[iplus - j]
 		end
 
-		-- apply carry to current limb
-		if p >= BASE then
-			carry = p // BASE
-			p %= BASE
-		else
-			carry = 0
-		end
-
+		-- apply carry to current limb 
+		if p >= BASE then 
+			carry = p // BASE 
+			p %= BASE 
+		else 
+			carry = 0 
+		end 
+		
 		rLimbs[i] = p
 	end
 	
@@ -1004,7 +1004,6 @@ end
 function AptInt:PowRaw(pow: AptInt)
 	local selfSign: number, powSign: number = self.signum, pow.signum
 	local selfLimbs: {number}, powLimbs: {number} = self.limbs, pow.limbs
-
 	--> CASES
 	if powSign == 0 then
 		return AP_ONE:clone()
@@ -1028,7 +1027,7 @@ function AptInt:PowRaw(pow: AptInt)
 			if bband(n, 1) == 1 then
 				result = selfClone:MultiplyRaw(result)
 			end
-
+			
 			selfClone = selfClone:MultiplyRaw(selfClone)
 			n = brshift(n, 1)
 		end
@@ -1040,6 +1039,7 @@ function AptInt:PowRaw(pow: AptInt)
 	local powClone: AptInt = pow:clone()
 
 	while powClone.signum == 1 do
+		print("ye")
 		if bband(powClone.limbs[1], 1) == 1 then
 			result = selfClone:MultiplyRaw(result)
 		end
@@ -1077,35 +1077,39 @@ function AptInt:ToString(): string
 	if self.signum == 0 then
 		return "0"
 	end
-
+	
+	--> we convert from base 2^k to base 10 in chunks of 8 digits
+	--> 8 = max {k | 2^24 * 10^k < 2^53}
 	local limbs: {number} = self.limbs
-	local str: string = ""
-
 	local clone: {number} = tclone(limbs)
-
-	--> convert from base 2^2k to 10
+	
+	local chunkAmount: number = ceil(#clone * log10(BASE) / floor(log10(TOSTRING_CHUNK_SIZE)))
+	local chunks: {string} = tcreate(chunkAmount, "")
+	
+	local chunkIdx: number = chunkAmount
 	while #clone > 0 do
 		local carry: number = 0
-		
-		--> left to right
 		for i: number = #clone, 1, -1 do
 			local val: number = clone[i] + carry * BASE
-
-			carry = val % 10
-			clone[i] = val // 10
-		end
-
-		str = tostring(carry)..str
-
-		-- stripleadingzeros
-		while true do
-			local len: number = #clone
-			if len == 0 or clone[len] ~= 0 then break end
 			
-			clone[len] = nil
+			carry = val % TOSTRING_CHUNK_SIZE
+			clone[i] = val // TOSTRING_CHUNK_SIZE
+		end
+		
+		--> we write in reverse order
+		chunks[chunkIdx] = sformat("%08d", carry)
+		chunkIdx -= 1
+
+		-- stripleadingzeros 
+		while true do 
+			local len: number = #clone 
+			if len == 0 or clone[len] ~= 0 then break end 
+			
+			clone[len] = nil 
 		end
 	end
-
+	
+	local str: string = tconcat(chunks):gsub("^0+", "") -- removes leading zeros, fast
 	return self.signum == -1 and `-{str}` or str
 end
 
