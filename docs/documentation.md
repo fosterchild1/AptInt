@@ -17,8 +17,8 @@ Metamethods are also supported, but they have added overhead compared to the raw
 
 In the computational complexity, we use a couple of terms that may be unknown to some. Their meanings are listed below:
 - n - the size of the input
-- M(n) - computational complexity of multiplying the input
-- D(n) - computational complexity of dividing the input
+- M(n) - computational complexity of multiplying the input - O(n^2), O(n^1.565) or O(n^1.465) depending on input size.
+- D(n) - computational complexity of dividing the input - O(n^2) or O(n log n) depending on input size.
 
 ```luau
 clone(n: AptInt) -> Aptint -- O(n)
@@ -27,13 +27,13 @@ Negate(n: AptInt, inPlace: boolean) -> Aptint -- O(1) for inPlace, O(n) otherwis
 
 ### Arithmetic
 ```luau
-AddRaw: (term: AptInt, term: AptInt) -> Aptint -- O(n)
-SubtractRaw: (term: AptInt, term: AptInt) -> Aptint -- O(n)
-MultiplyRaw: (factor: AptInt, factor: AptInt) -> Aptint -- O(n^2) for school grade, O(n^1.585) for Karatsuba algorithm, O(n^1.465) for Toom-Cook 3 algorithm
-DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt) -- O(n*m)
-ModRaw: (n: AptInt, div: AptInt) -> Aptint -- O(D(n)) for regular, O(1) for powers of 2, 5 and 10
-PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- O(M(n) * log n)
-sqrt: (n: AptInt) -> AptInt -- O(n^2 log n) for Newton-Heron, fast O(n^2 log n) for Karatsuba square root
+AddRaw: (term: AptInt, term: AptInt, inPlace: AptInt) -> Aptint -- O(n), inPlace modifies self in-place.
+SubtractRaw: (term: AptInt, term: AptInt, inPlace: AptInt) -> Aptint -- O(n), inPlace modifies self in-place.
+MultiplyRaw: (factor: AptInt, factor: AptInt) -> Aptint -- M(n)
+DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt) -- D(n)
+ModRaw: (n: AptInt, div: AptInt) -> Aptint -- D(n)
+PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- M(n) * O(log n)
+sqrt: (n: AptInt) -> AptInt -- O(n^2 log n) for Newton-Heron, fast O(n log n) for Karatsuba square root
 ```
 
 ### Comparison
@@ -64,7 +64,7 @@ IsEven: (n: AptInt) -> boolean, -- O(1)
 Min: (...AptInt) -> boolean, -- O(n)
 Max: (...AptInt) -> boolean, -- O(n)
 Clamp: (n: AptInt, min: AptInt, max: AptInt) -> AptInt, -- O(n)
-ModPow: (n: AptInt, mod: AptInt, exp: AptInt) -> AptIntm -- O(M(n) log n)
+ModPow: (n: AptInt, mod: AptInt, exp: AptInt) -> AptIntm -- M(N) * O(log n)
 ```
 
 # Syntax
@@ -73,7 +73,7 @@ You can use an AptInt in two ways:
 2. Using arithmetic operators directly - AptInt supports operators such as `+`, `-`, `*`, `/`, `^`, `%`, and they also allow you to use other data types like numbers or strings directly, at the cost of performance.
 
 # Example Usage
-Below is example usage of almost all functions provided by Aptint.luau and Extensions.luau. It is also timed and usually finishes in 5 milliseconds, with most of the time being spent on exponentiation.
+Below is example usage of almost all functions provided by Aptint.luau and Extensions.luau. It is also timed and usually finishes in a millisecond, with most of the time being spent on exponentiation.
 ```luau
 local aptint = require(game.ReplicatedStorage.AptInt)
 require(game.ReplicatedStorage.AptInt.Extensions)
@@ -124,5 +124,5 @@ print(aptint.new(0) == aptint.zero) -- true
 print((-x):Abs()) -- 189234913413490
 print(x:Max(y, z, w)) -- 9012349012343490119034
 
-print(os.clock() - start) -- usually finishes in 5ms.
+print(os.clock() - start) -- usually finishes in 1ms
 ```
