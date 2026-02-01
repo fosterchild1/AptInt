@@ -14,11 +14,11 @@
 local AptInt = {}
 AptInt.__index = AptInt
 
-export type ValidConstructor = string | number | {number} | nil
+export type ValidConstructor = string | number | buffer | nil
 export type ValidMetamethodArgument = string | number | AptInt
 
 export type AptInt = setmetatable<{
-	limbs: {number},
+	limbs: buffer,
 	signum: number,
 
 	read clone: (n: AptInt) -> AptInt,
@@ -64,6 +64,9 @@ local tconcat: <V>({V}, string?, number?, number?) -> string = table.concat
 local tmove: ({number}, number, number, number, {number}?) -> {number} = table.move
 local tclone: ({number}) -> {number} = table.clone
 
+local bufcreate: (number) -> buffer = buffer.create
+local bufwrite: (buffer, number, number) -> () = buffer.writef64
+
 local sformat: (string, ...unknown) -> string = string.format
 
 -- =================
@@ -80,6 +83,7 @@ local MIN_MINADD_OFFSET: number = 20
 local BASE_POW: number = 24 -- MUST SATISFY: 2^(BASE_POW*2) < 2^53, because of multiplyraw and divideraw
 local BASE: number = 2^24 -- we use base 2^24 or else multiplication goes over 2^53
 local BASE_MASK: number = 0xFFFFFF -- BASE - 1
+local BASE_RADIX_CONST: number = 0.13841367062030677 -- log2(10)/BASE_POW
 
 local TOSTRING_CHUNK_SIZE: number = 10^8
 
@@ -88,16 +92,18 @@ local AP_ONE: AptInt
 local AP_THREE: AptInt
 
 --> CONSTRUCTOR
-local typeConstructors: {[string]: (any) -> ({number}, number)} = {
-	["string"] = function(str: string): ({number}, number)
+local typeConstructors: {[string]: (any) -> (buffer, number)} = {
+	["string"] = function(str: string): (buffer, number)
 		local isNegative: boolean = str:sub(1, 1) == "-"
 		if isNegative then
 			str = str:sub(2, #str)
 		end
-
-		local arr: {number} = {}
+		
+		local convertedSize: number = ceil(#str * BASE_RADIX_CONST)
+		local buf: buffer = bufcreate(convertedSize)
 		
 		--> convert from base 10 to base 2^k
+		local bufIndex: number = 0
 		while str ~= "0" do
 			local carry: number = 0
 			local out: {number} = {}
@@ -113,44 +119,48 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 				tinsert(out, q)
 			end
 
-			tinsert(arr, carry)
+			bufwrite(buf, bufIndex, carry)
+			bufIndex += 8 -- double = 8 bytes
 
 			str = (#out > 0) and tconcat(out) or "0"
 		end
 
-		return arr, (isNegative and -1 or 1)
+		return buf, (isNegative and -1 or 1)
 	end,
 
-	["number"] = function(num: number): ({number}, number)
+	["number"] = function(num: number): (buffer, number)
+		local buf: buffer = bufcreate(8)
 		if num == 0 then
-			return {0}, 0
+			bufwrite(buf, 0, 0)
+			return buf, 0
 		elseif num == -1 then
-			return {1}, -1
+			bufwrite(buf, 0, 1)
+			return buf, -1
 		end
 
 		local actualSign: number = sign(num)
 		num = abs(num)
-
-		local arr: {number} = {}
-		while num > 0 do
-			tinsert(arr, floor(num % BASE))
-			num //= BASE
-		end
-
-		return arr, actualSign
-	end,
-
-	["table"] = function(tbl: {any}): ({number}, number)	
-		local first: number = tbl[1]
-		if not first then
-			return {0}, 0
-		end
 		
-		return tbl, 1
+		local convertedSize: number = ceil(log10(num) * BASE_RADIX_CONST)
+		local buf: buffer = bufcreate(convertedSize)
+		
+		local bufIndex: number = 0
+		while num > 0 do
+			bufwrite(buf, bufIndex, floor(num % BASE))
+			num //= BASE
+			bufIndex += 8 -- doubles are 8 bytes
+		end
+
+		return buf, actualSign
 	end,
 
-	["nil"] = function(_: nil): ({number}, number)
-		return {0}, 0
+	["buffer"] = function(buf: buffer): (buffer, number)
+		--> TODO: check if buf[0] is 0, then set signum to 0 and return bufcreate(8)
+		return buf, 1
+	end,
+
+	["nil"] = function(_: nil): (buffer, number)
+		return bufcreate(8), 0
 	end,
 }
 
@@ -702,7 +712,7 @@ end
 
 -- Returns a new AptInt from the given argument.
 function AptInt.new(num: ValidConstructor): AptInt
-	local limbs: {number}, signum: number = typeConstructors[typeof(num)](num)
+	local limbs: buffer, signum: number = typeConstructors[typeof(num)](num)
 
 	return setmetatable({
 		limbs = limbs,
@@ -1225,9 +1235,8 @@ end
 --> METAMETHODS
 -- ============
 
-AptInt.__unm = function(num: AptInt): AptInt
-	return num:Negate()
-end
+AptInt.__unm = AptInt.Negate
+AptInt.__tostring = AptInt.ToString
 
 AptInt.__add = function(a: ValidMetamethodArgument, b: ValidMetamethodArgument): AptInt
 	local term1: AptInt = ArgumentToAptInt(a, "add")
@@ -1292,10 +1301,6 @@ AptInt.__le = function(a: ValidMetamethodArgument, b: ValidMetamethodArgument): 
 	local term2: AptInt = ArgumentToAptInt(b, "le")
 
 	return term1:LowerOrEqualToRaw(term2)
-end
-
-AptInt.__tostring = function(n: AptInt): string
-	return n:ToString()
 end
 
 AptInt.__len = function(n: AptInt): number
