@@ -29,3 +29,6 @@ Exponentiation uses O(n log n) [exponentiation by squaring](https://en.wikipedia
 - Basecase sqrt: O(n^2 log n) [Newton-Heron](https://en.wikipedia.org/wiki/Integer_square_root#Algorithm_using_Newton's_method) square root.
 - Karatsuba sqrt: For n,m > `SQRT_KARATSUBA_THRESHOLD`, runs [Karatsuba sqrt](https://inria.hal.science/inria-00072854v1/file/RR-3805.pdf) in M(n) time, where M(n) = time to multiply two n-sized numbers.
    - Binary search was considered, but it was deemed too slow.
+
+### Radix conversion
+For `:ToString()`, [Algorithm 1.26 from Modern Computer Arithmetic](https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf) was considered, but it was deemed to have too slow.
