@@ -17,7 +17,8 @@ This library provides:
 The implementations are as performant as possible, so they have no safety checks, with the exception of the metamethods.
 
 # Usage
-Documentation can be found [here](https://github.com/fosterchild1/AptInt/blob/main/docs/documentation.md).
+Documentation can be found [here](https://github.com/fosterchild1/AptInt/blob/main/docs/usage.md).<br/>
+Algorithm choice can be found [here](https://github.com/fosterchild1/AptInt/blob/main/docs/algorithms.md).
 
 # What makes it so fast?
 AptInt uses the Karatsuba and Toom-Cook3 algorithms for multiplication, Knuths algorithm D for division, Karatsuba sqrt for finding the square root and more. Alongside these algorithms, it uses many techniques to shave off hundreds of milliseconds of computing time.
