@@ -207,6 +207,12 @@ local function Div2InPlace(n: AptInt)
 	StripLeadingZeros(n)
 end
 
+local function NegateRef(n: AptInt): AptInt
+	return setmetatable({
+		limbs = n.limbs,
+		signum = -n.signum,
+	}, AptInt) :: AptInt
+end
 
 --> these functions esentially do the same thing. this is horrible code, but i dont wanna refactor it.
 
@@ -224,6 +230,10 @@ end
 local function GetSlice(n: AptInt, startIdx: number, endIdx: number)
 	return AptInt.new(tmove(n.limbs, startIdx, endIdx, 1, {}))
 end
+
+-- =======================
+-- ALL SORTS OF ALGORITHMS
+-- =======================
 
 local function MinAdd(xLimbs: {number}, yLimbs: {number}, result: AptInt): AptInt
 	--> since result has self's limbs, we can just iterate over y
@@ -278,7 +288,6 @@ local function MulKaratsuba(x: AptInt, y: AptInt): AptInt
 	local z2: AptInt = high1:MultiplyRaw(high2)
 
 	-- result = z0 + ((z1 - z2 - z0) << m2) + (z2 << 2*m2)
-
 	local result: AptInt = z2:LeftShift(2*m2)
 		:AddRaw( 
 			z1:SubtractRaw(z2:AddRaw(z0), true):LeftShift(m2)
@@ -688,13 +697,6 @@ local function KaratsubaSqrt(n: AptInt): (AptInt, AptInt)
 	end
 
 	return s, r
-end
-
-local function NegateRef(n: AptInt): AptInt
-	return setmetatable({
-		limbs = n.limbs,
-		signum = -n.signum,
-	}, AptInt) :: AptInt
 end
 
 -- ====================
@@ -1134,7 +1136,7 @@ end
 
 -- Returns a double equal to <code>tonumber(x)</code>
 function AptInt:ToNumber(): number
-	return tonumber(self:ToString()) :: number -- faster than doing math.log10 stuff and blablabla
+	return tonumber(self:ToString()) :: number
 end
 
 -- ==================
