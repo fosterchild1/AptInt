@@ -72,7 +72,8 @@ local sformat: (string, ...unknown) -> string = string.format
 
 local KARATSUBA_THRESHOLD: number = 45 -- in limbs, limit where karatsuba is faster than normal multiplication
 local SQRT_KARATSUBA_THRESHOLD: number = 32
-local TOOM_THRESHOLD: number = 90
+local TOOM3_THRESHOLD: number = 90
+local TOOM4_THRESHOLD: number = 300
 local BURNIKEL_THRESHOLD: number = 280
 local MIN_BURNIKEL_OFFSET: number = 40
 local MIN_MINADD_OFFSET: number = 20
@@ -84,9 +85,10 @@ local BASE_MASK: number = 0xFFFFFF -- BASE - 1
 local RADIX_LEN_CONST: number = 7.224719895935548 -- BASE_POW * log10(2)
 local TOSTRING_CHUNK_SIZE: number = 10^8
 
-local AP_NEG_ONE: AptInt
-local AP_ONE: AptInt
-local AP_THREE: AptInt
+local AP_NEG_ONE: AptInt, AP_ONE: AptInt, AP_THREE: AptInt
+local AP_FOUR: AptInt, AP_EIGHT: AptInt, AP_16: AptInt
+local AP_18: AptInt, AP_24: AptInt, AP_30: AptInt
+local AP_45: AptInt, AP_64: AptInt, AP_65: AptInt
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
@@ -95,31 +97,37 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 		if isNegative then
 			str = str:sub(2, #str)
 		end
-
-		local arr: {number} = {}
-
-		--> convert from base 10 to base 2^k
-		while str ~= "0" do
-			local carry: number = 0
-			local out: {number} = {}
-
-			for i: number = 1, #str do
-				local digit: number = tonumber(str:sub(i, i)) or 0
-
-				local p: number = carry * 10 + digit
-				local q: number = p // BASE
-				carry = p % BASE
-
-				if #out == 0 and q == 0 then continue end
-				tinsert(out, q)
-			end
-
-			tinsert(arr, carry)
-
-			str = (#out > 0) and tconcat(out) or "0"
+		
+		--> convert from decimal to base 2^24
+		local out: {number} = {}
+		local chunks: {number} = {}
+		
+		for i: number = #str, 1, -8 do
+			local start: number = max(i - 7, 1)
+			tinsert(chunks, tonumber(str:sub(start, i)) or 0)
 		end
 
-		return arr, (isNegative and -1 or 1)
+		while #chunks > 0 do
+			local carry: number = 0
+			for i: number = #chunks, 1, -1 do
+				local val: number = chunks[i] + carry * TOSTRING_CHUNK_SIZE
+
+				chunks[i] = val // BASE
+				carry = val % BASE
+			end
+
+			tinsert(out, carry)
+			
+			--> stripleadingzeros
+			while true do 
+				local len: number = #chunks 
+				if len == 0 or chunks[len] ~= 0 then break end 
+
+				chunks[len] = nil 
+			end
+		end
+
+		return out, (isNegative and -1 or 1)
 	end,
 
 	["number"] = function(num: number): ({number}, number)
@@ -303,12 +311,14 @@ local function MulToom3(x: AptInt, y: AptInt): AptInt
 	local k: number = largest//3
 	local r: number = largest*2//3
 
-	-- get slices
+	--> get slices
 	local x0: AptInt, x1: AptInt = GetSlice(x, 1, k), GetSlice(x, k+1, 2*k)
 	local x2: AptInt = GetSlice(x, 2*k+1, 2*k+r)
 
 	local y0: AptInt, y1: AptInt = GetSlice(y, 1, k), GetSlice(y, k+1, 2*k)
 	local y2: AptInt = GetSlice(y, 2*k+1, 2*k+r)
+	--print(#x0.limbs, #x1.limbs, #x2.limbs)
+	--print(#y0.limbs, #y1.limbs, #y2.limbs)
 
 	local v0: AptInt = x0:MultiplyRaw(y0)
 	local da1: AptInt = x2:AddRaw(x0)
@@ -344,6 +354,107 @@ local function MulToom3(x: AptInt, y: AptInt): AptInt
 		:LeftShift(k):AddRaw(tm1)
 		:LeftShift(k):AddRaw(v0)
 
+	result.signum = x.signum * y.signum
+	return result
+end
+
+local function MulToom4(x: AptInt, y: AptInt): AptInt
+	--> https://members.loria.fr/PZimmermann/software/toom4.c
+	
+	local largest: number = max(#x.limbs, #y.limbs)
+	local k: number = largest//4
+	
+	--> get slices
+	local x0: AptInt, x1: AptInt = GetSlice(x, 1, k), GetSlice(x, k+1, 2*k)
+	local x2: AptInt, x3: AptInt = GetSlice(x, 2*k+1, 3*k), GetSlice(x, 3*k+1, largest)
+	
+	local y0: AptInt, y1: AptInt = GetSlice(y, 1, k), GetSlice(y, k+1, 2*k)
+	local y2: AptInt, y3: AptInt = GetSlice(y, 2*k+1, 3*k), GetSlice(y, 3*k+1, largest)
+	--print(x3.limbs, k)
+	--print(#x0.limbs, #x1.limbs, #x2.limbs, #x3.limbs)
+	--print(#y0.limbs, #y1.limbs, #y2.limbs, #y3.limbs)
+	--> evaluation
+	local r6: AptInt = x3:AddRaw(x1)
+	local r5: AptInt = x2:AddRaw(x0)
+	local r3: AptInt = r6:AddRaw(r5)
+	local r4: AptInt = r5:SubtractRaw(r6)
+	r6 = y3:AddRaw(y1)
+	r5 = y2:AddRaw(y0)
+	local r7: AptInt = r5:AddRaw(r6)
+	r5 = r5:SubtractRaw(r6)
+	r3 = r3:MultiplyRaw(r7) -- t=1
+	r4 = r4:MultiplyRaw(r5) -- t=-1
+	
+	local r1: AptInt = x0:MultiplyRaw(AP_EIGHT) -- mpz_mul_2exp(r1, a0, 3)
+	r1 = r1:AddRaw(x2:AddRaw(x2)) -- mpz_addmul_ui(r1, a2, 2) => r1+x2*2
+	r7 = x2:MultiplyRaw(AP_FOUR) -- mpz_mul_2exp(r7, a2, 2)
+	r7 = r7:AddRaw(x3)
+	r5 = r1:AddRaw(r7)
+	r6 = r1:SubtractRaw(r7)
+	r1 = y0:MultiplyRaw(AP_EIGHT) -- mpz_mul_2exp(r1, b0, 3)
+	r1 = r1:AddRaw(y2:AddRaw(y2)) -- mpz_addmul_ui(r1, b2, 2) => r1+y2*2
+	r7 = x1:MultiplyRaw(AP_FOUR) -- mpz_mul_2exp(r7, b2, 2)
+	r7 = r7:AddRaw(y3)
+	local r2: AptInt = r1:AddRaw(r7)
+	r7 = r1:SubtractRaw(r7)
+	r5 = r5:MultiplyRaw(r2) -- t=1/2
+	r6 = r6:MultiplyRaw(r7) -- t=-1/2
+	
+	r2 = x3:MultiplyRaw(AP_EIGHT) -- mpz_mul_2exp(r1, a3, 3)
+	r2 = r2:AddRaw(x2:MultiplyRaw(AP_FOUR)) -- mpz_addmul_ui(r2, a2, 4) => r2 = r2+x2*4
+	r2 = r2:AddRaw(x1:AddRaw(x1))  -- mpz_addmul_ui (r2, a1, 2) => r2 = r2+x1*2
+	r2 = r2:AddRaw(x0)
+	r7 = y3:MultiplyRaw(AP_EIGHT)
+	r7 = r7:AddRaw(y2:MultiplyRaw(AP_FOUR))
+	r7 = r7:AddRaw(y1:AddRaw(y1))
+	r7 = r7:AddRaw(y0)
+	r2 = r2:MultiplyRaw(r7) -- t=2
+	r1 = x3:MultiplyRaw(y3) -- t=inf
+	r7 = x0:MultiplyRaw(y0) -- t=0
+	
+	--> interpolation
+	r2 = r2:AddRaw(r5)
+	r6 = r5:SubtractRaw(r6)
+	r4 = r3:SubtractRaw(r4)
+	
+	r5 = r5:SubtractRaw(r1)
+	r5 = r5:SubtractRaw(r7:MultiplyRaw(AP_64))
+	Div2InPlace(r4)
+	
+	r3 = r3:SubtractRaw(r4)
+	r5 = r5:AddRaw(r5)
+	r5 = r5:SubtractRaw(r6)
+	
+	r2 = r2:SubtractRaw(r3:MultiplyRaw(AP_65))
+	r3 = r3:SubtractRaw(r7)
+	r3 = r3:SubtractRaw(r1)
+	
+	r2 = r2:AddRaw(r3:MultiplyRaw(AP_45))
+	r5 = r5:SubtractRaw(r3:MultiplyRaw(AP_EIGHT))
+	
+	r5 = r5:DivideRaw(AP_24)
+	
+	r6 = r6:SubtractRaw(r2)
+	r2 = r2:SubtractRaw(r4:MultiplyRaw(AP_16))
+	
+	r2 = r2:DivideRaw(AP_18)
+	r3 = r3:SubtractRaw(r5)
+	
+	r4 = r4:SubtractRaw(r2)
+	r6 = r6:DivideRaw(AP_30)
+	r6 = r6:AddRaw(r2)
+	Div2InPlace(r6)
+	r2 = r2:SubtractRaw(r6)
+	--print(r7, r7, r5, r4, r3, r2, r1)
+	--> combine and were done
+	local result: AptInt = r7
+		:LeftShift(k):AddRaw(r6)
+		:LeftShift(k):AddRaw(r5)
+		:LeftShift(k):AddRaw(r4)
+		:LeftShift(k):AddRaw(r3)
+		:LeftShift(k):AddRaw(r2)
+		:LeftShift(k):AddRaw(r1)
+	--print(result, k)
 	result.signum = x.signum * y.signum
 	return result
 end
@@ -713,10 +824,11 @@ function AptInt.new(num: ValidConstructor): AptInt
 	}, AptInt) :: AptInt
 end
 
---> this is ugly
-AP_NEG_ONE = AptInt.new(-1)
-AP_ONE = AptInt.new({1})
-AP_THREE = AptInt.new({3})
+--> this is ugly. needed constants in MulToom3, MulToom4 and division
+AP_NEG_ONE, AP_ONE, AP_THREE = AptInt.new(-1), AptInt.new({1}),  AptInt.new({3})
+AP_FOUR, AP_EIGHT, AP_16 = AptInt.new({4}), AptInt.new({8}), AptInt.new({16})
+AP_24, AP_45, AP_64 = AptInt.new({24}), AptInt.new({45}), AptInt.new({64})
+AP_65, AP_18, AP_30 = AptInt.new({65}), AptInt.new({18}), AptInt.new({30})
 
 -- Returns a copy of the AptInt.
 function AptInt.clone(n: AptInt): AptInt
@@ -843,7 +955,7 @@ function AptInt:SubtractRaw(term: AptInt, inPlace: boolean?): AptInt
 end
 
 -- Returns an AptInt equal to <code>a * b</code>.
-function AptInt:MultiplyRaw(factor: AptInt): AptInt
+function AptInt:MultiplyRaw(factor: AptInt, i: boolean?): AptInt
 	local selfSign: number, factorSign: number = self.signum, factor.signum
 
 	--> CASES
@@ -886,8 +998,10 @@ function AptInt:MultiplyRaw(factor: AptInt): AptInt
 
 		return result
 	end
-
-	if selfLen > TOOM_THRESHOLD and factorLen > TOOM_THRESHOLD then
+	
+	if selfLen > TOOM4_THRESHOLD and factorLen > TOOM4_THRESHOLD and not i then
+		return MulToom4(self, factor)
+	elseif selfLen > TOOM3_THRESHOLD and factorLen > TOOM3_THRESHOLD then
 		local result: AptInt = MulToom3(self, factor)
 		StripLeadingZeros(result)
 		return result
