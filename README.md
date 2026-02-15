@@ -17,7 +17,7 @@ This library provides:
 The implementations are as performant as possible, so they have no safety checks, with the exception of the metamethods.
 
 # Usage
-Documentation can be found [here](https://github.com/fosterchild1/AptInt/blob/main/docs/usage.md).<br/>
+Usage Documentation can be found [here](https://github.com/fosterchild1/AptInt/blob/main/docs/usage.md).<br/>
 Algorithm choice can be found [here](https://github.com/fosterchild1/AptInt/blob/main/docs/algorithms.md).
 
 # What makes it so fast?
@@ -34,10 +34,10 @@ For division, we do a 2NxN division. (2N = digit count)
 | ---  | --- | --- | --- | --- | --- |
 | 1 | 1μs | 1μs | 1μs | 6μs | 7μs |
 | 50 | 1μs | 3μs | 4μs | 19μs | 40μs |
-| 100 | 1μs | 7μs | 6μs | 31μs | 183μs |
-| 500 | 2μs | 9μs | 66μs | 114μs | 357μs |
-| 1,000 | 10μs | 13μs | 225μs | 153μs | 737μs |
-| 5,000 | 37μs | 30μs | 3ms | 2ms | 2ms |
-| 10,000 | 57μs | 74μs | 14ms | 8ms | 9ms |
-| 50,000 | 229μs | 243μs | 90ms | 105ms | 106ms |
-| 100,000 | 439μs | 470μs | 253ms | 264ms | 175ms |
+| 100 | 2μs | 7μs | 6μs | 31μs | 157μs |
+| 500 | 5μs | 9μs | 56μs | 114μs | 311μs |
+| 1,000 | 7μs | 13μs | 225μs | 153μs | 468μs |
+| 5,000 | 23μs | 30μs | 3ms | 2ms | 2ms |
+| 10,000 | 57μs | 74μs | 7ms | 8ms | 5ms |
+| 50,000 | 209μs | 243μs | 75ms | 105ms | 67ms |
+| 100,000 | 389μs | 396μs | 218ms | 195ms | 153ms |
