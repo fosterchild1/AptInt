@@ -16,7 +16,7 @@ local tcreate: (number, number) -> {number} = table.create
 local SQRT_KARATSUBA_THRESHOLD: number = Constants.SQRT_KARATSUBA_THRESHOLD
 
 local function NewtonHeronSqrt(n: {number})
-	local prev2: {number} = {-1}
+	local prev2: {number} = {1}
 	
 	--> AP_ONE:LeftShift((#n.limbs-1)//2) -- initial guess
 	local prev1: {number} = tcreate(#n//2, 0)
@@ -78,13 +78,13 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	return s, r
 end
 
-function Sqrt.ISqrt(num: {number})
-	if #num >= SQRT_KARATSUBA_THRESHOLD then
-		local s, _ = KaratsubaSqrt(self)
+function Sqrt.ISqrtLimbs(limbs: {number})
+	if #limbs >= SQRT_KARATSUBA_THRESHOLD then
+		local s, _ = KaratsubaSqrt(limbs)
 		return s
 	end
 
-	return NewtonHeronSqrt(self)
+	return NewtonHeronSqrt(limbs)
 end
 
 return Sqrt

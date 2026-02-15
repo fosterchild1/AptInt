@@ -53,7 +53,6 @@ local sformat: (string, ...unknown) -> string = string.format
 --> NORMAL CONSTANTS
 -- =================
 
-local SQRT_KARATSUBA_THRESHOLD: number = 32
 local BURNIKEL_THRESHOLD: number = 280
 local MIN_BURNIKEL_OFFSET: number = 40
 
@@ -207,126 +206,6 @@ local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt
 	return remainder
 end
 
---> BURNIKEL ZIEGLER
-local function DivBZ3n2n(a1: AptInt, a2: AptInt, a3: AptInt, b1: AptInt, b2: AptInt): (AptInt, AptInt)
-	--> Algorithm 2 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
-	local n: number = #b2.limbs
-
-	local B: AptInt = b1:LeftShift(n):AddRaw(b2, true) -- [b1, b2]
-
-	local q: AptInt, R: AptInt, D: AptInt
-	if a1:LowerThanRaw(b1) then -- step 3a: a1 < b1
-		local a1a2: AptInt = a1:LeftShift(n):AddRaw(a2, true)
-		q, R = DivBZ2n1n(a1a2, b1)
-
-		-- step 4: d = q * b2
-		D = q:MultiplyRaw(b2)
-	else -- step 3b: a1 >= b1
-		q = AptInt.new(tcreate(n, BASE_MASK)) -- q = beta^n-1
-		R = a1:SubtractRaw(b1, true):LeftShift(n):AddRaw(b1, true):AddRaw(a2, true) 
-		-- ^ - [b1, 0] + [0, b1]
-
-		-- step 4: D = (b2 << n) - b2
-		D = b2:LeftShift(n):SubtractRaw(b2, true)
-	end
-
-	R = R:LeftShift(n):AddRaw(a3, true) -- paper says a4 but its actually a3
-
-	--> q too large by atleast 1
-	while R:LowerThanRaw(D) do
-		q:SubtractRaw(AP_ONE, true)
-		R:AddRaw(B, true)
-	end
-
-	R:SubtractRaw(D, true)
-	return q, R
-end
-
-function DivBZ2n1n(A: AptInt, B: AptInt): (AptInt, AptInt)
-	--> this function has to be global because of its use in DivBZ3n2n.
-	--> Algorithm 1 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
-	local bLen: number = #B.limbs
-
-	--> basecase
-	if bLen % 2 == 1 or bLen < BURNIKEL_THRESHOLD then
-		return DivKnuths(A, B)
-	end
-
-	local k: number = bLen/2
-
-	--> get a1,a2,a3,a4 and b1,b2, where a=[a1,a2,a3,a4] and b=[b1,b2]
-	local a1: AptInt, a2: AptInt = GetSlice(A, 3*k+1, 4*k), GetSlice(A, 2*k+1, 3*k)
-	local a3: AptInt, a4: AptInt = GetSlice(A, k+1, 2*k), GetSlice(A, 1, k)
-	local b1: AptInt, b2: AptInt = GetUpper(B, k), GetLower(B, k)
-
-	--> get q1,R
-	local q1: AptInt, r: AptInt = DivBZ3n2n(a1, a2, a3, b1, b2)
-	local r1: AptInt, r2: AptInt = GetUpper(r, k), GetLower(r, k)
-	local q2: AptInt, S: AptInt = DivBZ3n2n(r1, r2, a4, b1, b2)
-
-	--> Q=[q1,q2]
-	local Q: AptInt = q1:LeftShift(k):AddRaw(q2, true) -- Q = [q1,q2]
-	return Q, S
-end
-
-local function DivBurnikelZiegler(A: AptInt, B: AptInt): (AptInt, AptInt)
-	--> https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
-	--> https://github.com/leif-ibsen/BigInt/blob/master/Sources/BigInt/BurnikelZiegler.swift
-	--> github.com/tbuktu/bigint/blob/master/src/main/java/java/math/MutableBigInteger.java#L1249
-
-	--> this was a really horrible algorithm to implement. never again.
-
-	--> 0. s = B length
-	local s: number = #B.limbs
-
-	--> 1. get m, j and n
-	local m: number = 2^floor(log(s/BURNIKEL_THRESHOLD, 2) + 1)
-
-	local j: number = ceil(s/m)
-	local n: number = j * m
-
-	--> 3. set sigma to normalize B and A, so that B[#B] >= BASE/2
-	--> sigma is single-limb, so multiplication here is linear.
-	local sigma: number = BASE // (B.limbs[s] + 1)
-	local shift: number = n-s
-
-	local bShifted: AptInt, aShifted: AptInt = MulByInt(B, sigma), MulByInt(A, sigma)
-	if shift > 0 then
-		bShifted = bShifted:LeftShift(shift)
-		aShifted = aShifted:LeftShift(shift)
-	end
-
-	local r: number = #aShifted.limbs
-	s = #bShifted.limbs
-
-	--> 5. calculate t: how many n-sized chunks are in A, t >= 2
-	local t: number = max(ceil(r/n), 2)
-
-	--> 6. z = [a[t-1], 0]. we add a[t-2] inside loop
-	local z: AptInt = GetSlice(aShifted, (t-1)*n+1, r)
-
-	--> 7. for i = t - 2, 1 do
-	local quotient: AptInt = AptInt.new()
-	quotient.limbs = {} -- so that the 1st leftshift doesnt offset it by 1
-	for i: number = t-2, 0, -1 do
-		--> get ai1
-		local startIdx: number = i * n + 1
-		local endIdx: number = (i + 1) * n
-		local ai1: AptInt = GetSlice(aShifted, startIdx, endIdx)
-
-		z = z:LeftShift(n):AddRaw(ai1, true)
-
-		--> 8a. qi, ri
-		local qi: AptInt, ri: AptInt = DivBZ2n1n(z, bShifted)
-		quotient = quotient:AddRaw(qi:LeftShift(i * n), true)
-
-		z = ri
-	end
-
-	StripLeadingZeros(quotient)
-	z = z:DivideRaw(AptInt.new({sigma}))
-	return quotient, z
-end
 
 -- ====================
 --> METATABLE FUNCTIONS
@@ -564,7 +443,7 @@ function AptInt:sqrt(): AptInt
 		return AptInt.new()
 	end
 	
-	return AptInt.new(Sqrt.ISqrt(self.limbs))
+	return AptInt.new(Sqrt.ISqrtLimbs(self.limbs))
 end
 
 -- ==================
