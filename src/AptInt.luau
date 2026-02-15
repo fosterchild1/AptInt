@@ -144,21 +144,6 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 --> PRIVATE FUNCTIONS
 -- ==================
 
-
-local function StripLeadingZeros(n: AptInt)
-	local limbs: {number} = n.limbs
-	while true do
-		local limbLen: number = #limbs
-		if limbLen == 1 or limbs[limbLen] ~= 0 then break end
-
-		limbs[limbLen] = nil
-	end
-
-	if #limbs == 1 and limbs[#limbs] == 0 then
-		n.signum = 0
-	end
-end
-
 local function ArgumentToAptInt(num: ValidMetamethodArgument?, errContext: string): AptInt
 	local bigint: AptInt;
 
@@ -203,59 +188,6 @@ end
 -- =======================
 -- ALL SORTS OF ALGORITHMS
 -- =======================
-
-local function MulToom3(x: AptInt, y: AptInt): AptInt
-	local largest: number = max(#x.limbs, #y.limbs)
-
-	local k: number = largest//3
-	local r: number = largest*2//3
-
-	--> get slices
-	local x0: AptInt, x1: AptInt = GetSlice(x, 1, k), GetSlice(x, k+1, 2*k)
-	local x2: AptInt = GetSlice(x, 2*k+1, 2*k+r)
-
-	local y0: AptInt, y1: AptInt = GetSlice(y, 1, k), GetSlice(y, k+1, 2*k)
-	local y2: AptInt = GetSlice(y, 2*k+1, 2*k+r)
-	--print(#x0.limbs, #x1.limbs, #x2.limbs)
-	--print(#y0.limbs, #y1.limbs, #y2.limbs)
-
-	local v0: AptInt = x0:MultiplyRaw(y0)
-	local da1: AptInt = x2:AddRaw(x0)
-	local db1: AptInt = y2:AddRaw(y0)
-	local vm1: AptInt = da1:SubtractRaw(x1):MultiplyRaw(db1:SubtractRaw(y1))
-
-	da1:AddRaw(x1, true)
-	db1:AddRaw(y1, true)
-
-	local v1: AptInt = da1:MultiplyRaw(db1)
-	da1:AddRaw(x2, true)
-	db1:AddRaw(y2, true)
-
-	local v2: AptInt = da1:AddRaw(da1, true):SubtractRaw(x0, true):MultiplyRaw(
-		db1:AddRaw(db1, true):SubtractRaw(y0, true)
-	)
-
-	--> all divisions here are single-limb, so they are linear.
-	local vinf: AptInt = x2:MultiplyRaw(y2)
-	v2 = v2:SubtractRaw(vm1, true):DivideRaw(AP_THREE)
-	local tm1: AptInt = v1:SubtractRaw(vm1); Div2InPlace(tm1)
-	v1:SubtractRaw(v0, true)
-
-	v2:SubtractRaw(v1, true); Div2InPlace(v2)
-	v1:SubtractRaw(tm1, true):SubtractRaw(vinf, true)
-	v2:SubtractRaw(vinf:AddRaw(vinf), true)
-	tm1:SubtractRaw(v2, true)
-
-	--> combine to get result
-	local result: AptInt = vinf
-		:LeftShift(k):AddRaw(v2, true)
-		:LeftShift(k):AddRaw(v1, true)
-		:LeftShift(k):AddRaw(tm1, true)
-		:LeftShift(k):AddRaw(v0, true)
-
-	result.signum = x.signum * y.signum
-	return result
-end
 
 --> divsion stuff
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
@@ -810,22 +742,22 @@ AptInt.__pow = function(a: ValidMetamethodArgument, b: ValidMetamethodArgument):
 end
 
 AptInt.__eq = function(a: ValidMetamethodArgument, b: ValidMetamethodArgument): boolean
-	local term1: AptInt = ArgumentToAptInt(a, "eq")
-	local term2: AptInt = ArgumentToAptInt(b, "eq")
+	local term1: AptInt = ArgumentToAptInt(a, "compare")
+	local term2: AptInt = ArgumentToAptInt(b, "compare")
 
 	return term1:EqualsRaw(term2)
 end
 
 AptInt.__lt = function(a: ValidMetamethodArgument, b: ValidMetamethodArgument): boolean
-	local term1: AptInt = ArgumentToAptInt(a, "lt")
-	local term2: AptInt = ArgumentToAptInt(b, "lt")
+	local term1: AptInt = ArgumentToAptInt(a, "compare")
+	local term2: AptInt = ArgumentToAptInt(b, "compare")
 
 	return term1:LowerThanRaw(term2)
 end
 
 AptInt.__le = function(a: ValidMetamethodArgument, b: ValidMetamethodArgument): boolean
-	local term1: AptInt = ArgumentToAptInt(a, "le")
-	local term2: AptInt = ArgumentToAptInt(b, "le")
+	local term1: AptInt = ArgumentToAptInt(a, "compare")
+	local term2: AptInt = ArgumentToAptInt(b, "compare")
 
 	return term1:LowerOrEqualToRaw(term2)
 end

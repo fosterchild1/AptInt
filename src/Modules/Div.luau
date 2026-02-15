@@ -36,9 +36,6 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	local qhat: number, rhat: number = 0, 0
 	for j: number = m, 0, -1 do
 		--> d3. calculate qhat and rhat
-
-		-- bigints for qhat and rhat are not needed, because un[x] is at most BASE
-		-- currently, BASE * BASE + BASE < 2^53
 		local nPlusJ: number = n + j + 1
 		local top: number = (Un[nPlusJ] or 0) * BASE + (Un[nPlusJ - 1] or 0)
 		qhat = top // Vnn
@@ -69,11 +66,11 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 			local diff: number = Un[i + j] - pDigit - borrow
 			if diff < 0 then
 				borrow = 1
-				diff += BASE
-			else
-				borrow = 0
+				Un[i + j] = diff + BASE
+				continue
 			end
 
+			borrow = 0
 			Un[i + j] = diff
 		end
 
@@ -94,11 +91,11 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 
 			if sum >= BASE then
 				carry = 1
-				sum -= BASE
-			else
-				carry = 0
+				Un[i + j] = sum - BASE
+				continue
 			end
 
+			carry = 0
 			Un[i + j] = sum
 		end
 
@@ -121,25 +118,8 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	return quotient, Un
 end
 
-function Div.DivByInt(self: {number}, div: number): ({number}, {number})
-	local quotient: {number} = tclone(self)
-
-	local carry: number = 0
-	for i: number = #self, 1, -1 do
-		local x: number = self[i] + carry * BASE
-		local qDigit: number = x // div
-
-		carry = x - qDigit * div
-		quotient[i] = qDigit
-	end
-
-	Utils.StripLeadingZeros(quotient)
-	if carry == 0 then
-		return quotient, {}
-	end
-
-	return quotient, {carry}
-end
+--> this is needed in multiplication too
+Div.DivByInt = Utils.DivByInt
 
 function Div.DivLimbs(self: {number}, divisor: {number}): ({number}, {number})
 	local diff: number = #self - #divisor
