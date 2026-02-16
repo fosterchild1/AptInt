@@ -86,7 +86,6 @@ local function MulLimbsBasecase(self: {number}, factor: {number}): {number}
 		result[i] = p
 	end
 
-	Utils.StripLeadingZeros(result)
 	return result
 end
 
@@ -112,7 +111,6 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 	
 	return result
 end
-
 
 local function MulToom3(x: {number}, y: {number}): {number}
 	local largest: number = max(#x, #y)

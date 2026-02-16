@@ -2,7 +2,7 @@
 --!strict
 --!optimize 2
 
-local Addition = {}
+local Add = {}
 
 local Constants = require("../Constants")
 
@@ -20,27 +20,27 @@ local function MinAdd(term: {number}, result: {number}): {number}
 	--> overall faster
 	
 	--> from right to left
-	local carry: number = 0
+	local sum: number = 0
 	for i: number, yLimb: number in term do
-		local sum: number = result[i] + yLimb + carry
+		sum += result[i] + yLimb
 
 		if sum >= BASE then
-			carry = 1
 			result[i] = sum - BASE
+			sum = 1
 			continue
 		end
 
-		carry = 0
 		result[i] = sum
+		sum = 0
 	end
 
-	if carry == 0 then return result end
+	if sum == 0 then return result end
 
 	--> carry loop
 	local resultIndex: number = #term
 	while true do
 		resultIndex += 1
-		local sum: number = (result[resultIndex] or 0) + 1
+		sum = (result[resultIndex] or 0) + 1
 
 		if sum >= BASE then
 			result[resultIndex] = sum - BASE
@@ -54,7 +54,7 @@ local function MinAdd(term: {number}, result: {number}): {number}
 	return result
 end
 
-function Addition.AddLimbs(self: {number}, term: {number}, inPlace: boolean?): {number}
+function Add.AddLimbs(self: {number}, term: {number}, inPlace: boolean?): {number}
 	local selfLen: number, termLen: number = #self, #term
 
 	--> choose the longer number to avoid extra "or 0" with selfDigit
@@ -71,22 +71,22 @@ function Addition.AddLimbs(self: {number}, term: {number}, inPlace: boolean?): {
 	end
 	
 	--> from right to left
-	local carry: number = 0
+	local sum: number = 0
 	for i: number, selfLimb: number in self do
-		local sum: number = selfLimb + (term[i] or 0) + carry
+		sum += selfLimb + (term[i] or 0)
 
 		if sum >= BASE then
-			carry = 1
 			result[i] = sum - BASE
+			sum = 1
 			continue
 		end
 
-		carry = 0
 		result[i] = sum
+		sum = 0
 	end
 
-	if carry > 0 then tinsert(result, carry) end
+	if sum > 0 then tinsert(result, sum) end
 	return result
 end
 
-return Addition
+return Add

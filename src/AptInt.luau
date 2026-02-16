@@ -162,14 +162,14 @@ local function NegateRef(n: AptInt): AptInt
 	return setmetatable({
 		limbs = n.limbs,
 		signum = -n.signum,
-	}, AptInt) :: AptInt
+	}, AptInt :: AptInt) :: AptInt
 end
 
 local function FromLimbs(limbs: {number}): AptInt
 	return setmetatable({
 		limbs = limbs,
 		signum = #limbs == 0 and 0 or 1,
-	}, AptInt) :: AptInt
+	}, AptInt :: AptInt) :: AptInt
 end
 
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
@@ -203,7 +203,7 @@ function AptInt.new(num: ValidConstructor): AptInt
 	return setmetatable({
 		limbs = limbs,
 		signum = signum
-	}, AptInt) :: AptInt
+	}, AptInt :: AptInt) :: AptInt
 end
 
 --> this is ugly. needed constants in MulToom3 and division
@@ -218,7 +218,7 @@ end
 function AptInt:Negate(inPlace: boolean): AptInt
 	if inPlace then
 		self.signum = -self.signum
-		return self :: AptInt
+		return self
 	end
 
 	local result: AptInt = self:clone()
@@ -291,16 +291,16 @@ function AptInt:MultiplyRaw(factor: AptInt, i: boolean?): AptInt
 	local factorLimbs: {number} = factor.limbs
 	
 	--> single limb multiplication
-	local result: {number}
+	local resultLimbs: {number}
 	if #factorLimbs == 1 then
-		result = Mul.MulByInt(self.limbs, factorLimbs[1])
+		resultLimbs = Mul.MulByInt(self.limbs, factorLimbs[1])
 	else
-		result = Mul.MulLimbs(self.limbs, factorLimbs)
+		resultLimbs = Mul.MulLimbs(self.limbs, factorLimbs)
 	end
 	
-	local metatblResult: AptInt = FromLimbs(result)
-	metatblResult.signum = selfSign * factorSign
-	return metatblResult
+	local result: AptInt = FromLimbs(resultLimbs)
+	result.signum = selfSign * factorSign
+	return result
 end
 
 -- Returns the quotient and remainder of a / b.
@@ -363,7 +363,6 @@ function AptInt:ModRaw(div: AptInt): AptInt
 	end
 
 	local _: AptInt, r: AptInt = self:DivideRaw(div)
-	
 	return r
 end
 
@@ -373,9 +372,9 @@ function AptInt:PowRaw(pow: AptInt): AptInt
 	local selfLimbs: {number}, powLimbs: {number} = self.limbs, pow.limbs
 	
 	--> CASES
-	if powSign == 0 then
+	if powSign ~= 1 then
 		return AP_ONE:clone()
-	elseif selfSign == 0 or powSign == -1 then
+	elseif selfSign == 0 then
 		return FromLimbs({})
 	end
 

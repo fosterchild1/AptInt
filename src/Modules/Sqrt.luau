@@ -65,7 +65,7 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	--> needed here too
 	local limbLen: number = #n
 	if limbLen < SQRT_KARATSUBA_THRESHOLD then
-		local sq = NewtonHeronSqrt(n)
+		local sq: {number} = NewtonHeronSqrt(n)
 		return sq, SubLimbs(n, Mul.MulLimbs(sq, sq))
 	end
 
@@ -104,7 +104,7 @@ end
 
 function Sqrt.ISqrtLimbs(limbs: {number}): {number}
 	if #limbs >= SQRT_KARATSUBA_THRESHOLD then
-		local s, _ = KaratsubaSqrt(limbs)
+		local s: {number}, _: {number} = KaratsubaSqrt(limbs)
 		return s
 	end
 
