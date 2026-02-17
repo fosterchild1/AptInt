@@ -1,4 +1,4 @@
-AptInt is a luau implementation of BigInteger. It uses base 10^7 to store numbers and it can go up to 90 sextillion digits before it starts losing precision.
+Below is an overview of how to use the library alongside its functions.
 
 # Construction
 
@@ -17,7 +17,7 @@ Metamethods are also supported, but they have added overhead compared to the raw
 
 In the computational complexity, we use a couple of terms that may be unknown to some. Their meanings are listed below:
 - n - the size of the input
-- M(n) - computational complexity of multiplying the input - O(n^2), O(n^1.565) or O(n^1.465) depending on input size.
+- M(n) - computational complexity of multiplying the input - O(n^2), O(n^1.565) or O(n^1.464) depending on input size.
 - D(n) - computational complexity of dividing the input - O(n^2) or O(n log n) depending on input size.
 
 ```luau
@@ -33,7 +33,7 @@ MultiplyRaw: (factor: AptInt, factor: AptInt) -> Aptint -- M(n)
 DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt) -- D(n)
 ModRaw: (n: AptInt, div: AptInt) -> Aptint -- D(n)
 PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- M(n) * O(log n)
-sqrt: (n: AptInt) -> AptInt -- O(n^2 log n) for Newton-Heron, fast O(n log n) for Karatsuba square root
+sqrt: (n: AptInt) -> AptInt -- O(n^2) for Newton-Heron, fast O(n log n) for Karatsuba square root
 ```
 
 ### Comparison
@@ -46,25 +46,16 @@ LowerOrEqualToRaw: (x: AptInt, y: AptInt) -> boolean -- O(n)
 ### Other
 ```luau
 LeftShift: (n: AptInt, amount: number) -> AptInt -- O(n)
-RightShift: (n: AptInt, amount: number0 -> AptInt -- O(n)
+RightShift: (n: AptInt, amount: number) -> AptInt -- O(n)
+Abs: (n: AptInt, inPlace: boolean?) -> AptInt -- O(1) for inPlace, O(n) otherwise
+Min: (...: AptInt) -> AptInt -- O(max(...))
+Max: (...: AptInt) -> AptInt -- O(max(...))
 ```
 
 ### Conversion
 ```luau
-ToString: (n: AptInt) -> string -- O(n)
-ToNumber: (n: AptInt) -> number -- O(n)
-```
-
-# Extensions
-Extensions are extra methods/variables added with the `Extend` function. Currently, the official extensions are:
-
-```luau
-Abs: (n: AptInt, inPlace: boolean) -> AptInt, -- O(1) for inPlace, O(n) otherwise
-IsEven: (n: AptInt) -> boolean, -- O(1)
-Min: (...AptInt) -> boolean, -- O(n)
-Max: (...AptInt) -> boolean, -- O(n)
-Clamp: (n: AptInt, min: AptInt, max: AptInt) -> AptInt, -- O(n)
-ModPow: (n: AptInt, mod: AptInt, exp: AptInt) -> AptIntm -- M(N) * O(log n)
+ToString: (n: AptInt) -> string -- O(n^2)
+ToNumber: (n: AptInt) -> number -- O(n^2)
 ```
 
 # Syntax
@@ -73,7 +64,7 @@ You can use an AptInt in two ways:
 2. Using arithmetic operators directly - AptInt supports operators such as `+`, `-`, `*`, `/`, `^`, `%`, and they also allow you to use other data types like numbers or strings directly, at the cost of performance.
 
 # Example Usage
-Below is example usage of almost all functions provided by Aptint.luau and Extensions.luau. It is also timed and usually finishes in a millisecond, with most of the time being spent on exponentiation.
+Below is example usage of almost all functions provided by Aptint. It is also timed and usually finishes in a millisecond, with most of the time being spent on exponentiation.
 ```luau
 local aptint = require(game.ReplicatedStorage.AptInt)
 require(game.ReplicatedStorage.AptInt.Extensions)
@@ -118,7 +109,6 @@ print(x % z < x:ModRaw(z), y % x > y:ModRaw(x)) -- false, false
 print(x ^ w) -- 32514036223443818658666570820773897187131153144315156149796159889594110235088130815486702658418689303967322551776061233110733856666188520606046203541487526744978697268624908930891991692677194433039757018952689791349889558362298065381765020144225256562503576779807721417275236547177622338980771070805187332601074109411066979379416928975392909324458659310591619674434891034337428433851093726569936220342131949259425917664234626052601806328228079886484005517894641978810310456199692440073854572204955477598194457596242817389098299760810308800031756375052331751488986937507305703604948452437651836947695048811539858617086040404708980301226604335294410391579875203623659207743316274004917715589113056535037465902146148814089582712158693559047903440100000000000000000000000000000000000000000000000000000000
 print(x ^ w ~= x:PowRaw(w)) -- false
 
---> EXTENSIONS
 print(aptint.new(0) == aptint.zero) -- true
 
 print((-x):Abs()) -- 189234913413490
