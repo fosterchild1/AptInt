@@ -32,12 +32,12 @@ For division, we do a 2NxN division. (2N = digit count)
 
 | Digit count | Addition | Subtraction | Multiplication | Division | Square root |
 | ---  | --- | --- | --- | --- | --- |
-| 1 | 1μs | 1μs | 1μs | 6μs | 7μs |
-| 50 | 1μs | 3μs | 4μs | 19μs | 40μs |
-| 100 | 2μs | 7μs | 6μs | 31μs | 157μs |
-| 500 | 5μs | 9μs | 56μs | 114μs | 311μs |
+| 1 | 1μs | 1μs | 1μs | 2μs | 54μs |
+| 50 | 1μs | 3μs | 4μs | 11μs | 136μs |
+| 100 | 2μs | 7μs | 6μs | 24μs | 157μs |
+| 500 | 5μs | 9μs | 56μs | 49μs | 311μs |
 | 1,000 | 7μs | 13μs | 225μs | 153μs | 468μs |
-| 5,000 | 23μs | 30μs | 3ms | 2ms | 2ms |
-| 10,000 | 57μs | 74μs | 7ms | 8ms | 5ms |
-| 50,000 | 209μs | 243μs | 75ms | 105ms | 67ms |
-| 100,000 | 389μs | 396μs | 218ms | 195ms | 153ms |
+| 5,000 | 23μs | 30μs | 2ms | 2ms | 2ms |
+| 10,000 | 57μs | 74μs | 6ms | 8ms | 5ms |
+| 50,000 | 209μs | 243μs | 67ms | 105ms | 67ms |
+| 100,000 | 389μs | 396μs | 183ms | 195ms | 145ms |
