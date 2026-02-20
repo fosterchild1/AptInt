@@ -58,6 +58,7 @@ local RADIX_LEN_CONST: number = Constants.RADIX_LEN_CONST
 local RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
 
 local AP_NEG_ONE: AptInt
+local LIMB_ONE: {number} = {1}
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
@@ -333,6 +334,11 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 		quotientLimbs, remLimbs = Div.DivByInt(U, V[1])
 	else
 		quotientLimbs, remLimbs = Div.DivLimbs(U, V)
+	end
+
+	if not sameSign and #remLimbs ~= 0 then
+		--> floor division needs one more step for mixed-sign non-exact results
+		Add.AddLimbs(quotientLimbs, LIMB_ONE, true)
 	end
 	
 	local quotient: AptInt, remainder: AptInt = FromLimbs(quotientLimbs), FromLimbs(remLimbs)
