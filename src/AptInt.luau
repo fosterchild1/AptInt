@@ -522,10 +522,16 @@ function AptInt:LowerOrEqualToRaw(num: AptInt): boolean
 	local selfSign: number, numSign: number = self.signum, num.signum
 
 	--> check sign
-	if selfSign <= numSign then
+	if selfSign < numSign then
 		return true
 	end
 
+	--> mixed-sign case
+	if selfSign > numSign then
+		return false
+	end
+
+	--> equal-sign case
 	local bothNegative: boolean = (selfSign == numSign and selfSign == -1)
 	if bothNegative then
 		return Cmp.LowerOrEqualTo(num.limbs, self.limbs)
