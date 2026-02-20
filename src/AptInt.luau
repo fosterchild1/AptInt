@@ -248,7 +248,14 @@ function AptInt:AddRaw(term: AptInt, inPlace: boolean?): AptInt
 	end
 	
 	local resultLimbs: {number} = Add.AddLimbs(self.limbs, term.limbs, inPlace)
-	return (inPlace and self or FromLimbs(resultLimbs))
+	if inPlace then
+		return self
+	end
+
+	--> preserve sign for same-sign sums in non-inplace path.
+	local result: AptInt = FromLimbs(resultLimbs)
+	result.signum = #resultLimbs == 0 and 0 or selfSign
+	return result
 end
 
 -- Returns an AptInt equal to <code>a - b</code>.
