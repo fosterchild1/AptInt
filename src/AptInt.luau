@@ -509,6 +509,11 @@ function AptInt:LowerThanRaw(num: AptInt): boolean
 		return true
 	end
 
+	--> mixed-sign case
+	if selfSign > numSign then
+		return false
+	end
+
 	local bothNegative: boolean = (selfSign == numSign and selfSign == -1)
 	if bothNegative then
 		return Cmp.LowerThan(num.limbs, self.limbs)
