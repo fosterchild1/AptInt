@@ -58,6 +58,7 @@ local RADIX_LEN_CONST: number = Constants.RADIX_LEN_CONST
 local RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
 
 local AP_NEG_ONE: AptInt
+local ONE_LIMB: {number} = {1}
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
@@ -338,6 +339,11 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	local quotient: AptInt, remainder: AptInt = FromLimbs(quotientLimbs), FromLimbs(remLimbs)
 	
 	remainder = CorrectRemainder(self, divisor, remainder)
+	if not sameSign and #remLimbs > 0 then
+		--> floor semantics: mixed-sign non-exact division needs one extra step
+		quotient.limbs = Add.AddLimbs(quotient.limbs, ONE_LIMB, true)
+	end
+
 	quotient.signum = selfSign / divSign
 	return quotient, remainder
 end
@@ -348,13 +354,16 @@ function AptInt:ModRaw(div: AptInt): AptInt
 
 	local selfSign: number, divSign: number = self.signum, div.signum
 
-	local divFirst: number = divLimbs[1] * divSign
-	local selfFirst: number = selfLimbs[1] * selfSign
-
 	--> CASES
-	if divSign == 0 or (#divLimbs == 1 and abs(divFirst) == 1) then
+	if #divLimbs == 0 or #selfLimbs == 0 or divSign == 0 then
+		return FromLimbs({})
+	end
+
+	local divFirst: number = divLimbs[1] * divSign
+	if #divLimbs == 1 and abs(divFirst) == 1 then
 		return FromLimbs({})
 	elseif #selfLimbs == 1 and #divLimbs == 1 then
+		local selfFirst: number = selfLimbs[1] * selfSign
 		return AptInt.new(selfFirst % divFirst)
 	end
 
@@ -507,10 +516,11 @@ function AptInt:LowerThanRaw(num: AptInt): boolean
 	--> check sign
 	if selfSign < numSign then
 		return true
+	elseif selfSign > numSign then
+		return false
 	end
 
-	local bothNegative: boolean = (selfSign == numSign and selfSign == -1)
-	if bothNegative then
+	if selfSign == -1 then
 		return Cmp.LowerThan(num.limbs, self.limbs)
 	end
 
@@ -522,12 +532,13 @@ function AptInt:LowerOrEqualToRaw(num: AptInt): boolean
 	local selfSign: number, numSign: number = self.signum, num.signum
 
 	--> check sign
-	if selfSign <= numSign then
+	if selfSign < numSign then
 		return true
+	elseif selfSign > numSign then
+		return false
 	end
 
-	local bothNegative: boolean = (selfSign == numSign and selfSign == -1)
-	if bothNegative then
+	if selfSign == -1 then
 		return Cmp.LowerOrEqualTo(num.limbs, self.limbs)
 	end
 	

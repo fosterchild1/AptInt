@@ -28,7 +28,7 @@ end
 
 function Cmp.LowerOrEqualTo(x: {number}, y: {number}): boolean
 	local xLen: number, yLen: number = #x, #y
-	if xLen <= yLen then
+	if xLen < yLen then
 		return true
 	elseif xLen > yLen then
 		return false
@@ -38,7 +38,7 @@ function Cmp.LowerOrEqualTo(x: {number}, y: {number}): boolean
 		local xLimb: number, yLimb: number = x[i], y[i]
 		if xLimb == yLimb then continue end
 		
-		return xLimb <= yLimb
+		return xLimb < yLimb
 	end
 
 	return true 
