@@ -68,7 +68,13 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 			str = str:sub(2, #str)
 		end
 		
-		if str == "0" then return {}, 0 end
+		--> canonicalize all-zero/leading-zero decimal strings
+		local firstNonZero: number? = str:find("[^0]")
+		if firstNonZero == nil then
+			return {}, 0
+		elseif firstNonZero ~= 1 then
+			str = str:sub(firstNonZero, #str)
+		end
 		
 		--> TODO: we could probably use algoritm 1.25 FastIntegerInput
 		--> convert from decimal to base 2^24
@@ -564,12 +570,27 @@ end
 -- Returns a new AptInt equal to <code>self*BASE<sup>n</sup></code>
 function AptInt:LeftShift(n: number): AptInt
 	-- this is the fastest way to leftshift
-	return FromLimbs(tmove(self.limbs, 1, #self.limbs, n+1, tcreate(n, 0)))
+	local selfSign: number = self.signum
+	if selfSign == 0 then
+		return FromLimbs({})
+	end
+
+	local shifted: AptInt = FromLimbs(tmove(self.limbs, 1, #self.limbs, n+1, tcreate(n, 0)))
+	shifted.signum = selfSign
+	return shifted
 end
 
 -- Returns a new AptInt equal to <code>self/BASE<sup>n</sup></code>
 function AptInt:RightShift(n: number): AptInt
-	return FromLimbs(tmove(self.limbs, 1, #self.limbs-n, 1, {}))
+	local selfSign: number = self.signum
+	local limbLen: number = #self.limbs
+	if selfSign == 0 or n >= limbLen then
+		return FromLimbs({})
+	end
+
+	local shifted: AptInt = FromLimbs(tmove(self.limbs, n+1, limbLen, 1, {}))
+	shifted.signum = selfSign
+	return shifted
 end
 
 -- ============
