@@ -129,12 +129,25 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 	end,
 
 	["table"] = function(tbl: {any}): ({number}, number)	
-		local first: number = tbl[1]
-		if not first then
+		local len: number = #tbl
+		if len == 0 then
 			return {}, 0
 		end
 
-		return tbl, 1
+		if tbl[len] ~= 0 then
+			return tbl, 1
+		end
+
+		--> canonicalize zero/trailing-zero table constructor inputs.
+		while len > 0 and tbl[len] == 0 do
+			len -= 1
+		end
+
+		if len == 0 then
+			return {}, 0
+		end
+
+		return tmove(tbl, 1, len, 1, {}), 1
 	end,
 
 	["nil"] = function(_: nil): ({number}, number)
