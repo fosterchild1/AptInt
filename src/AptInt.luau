@@ -179,6 +179,14 @@ local function FromLimbs(limbs: {number}): AptInt
 	}, AptInt :: AptInt) :: AptInt
 end
 
+local function CopyAptInt(value: AptInt): AptInt
+	-- clone limb storage too so returned values stay isolated.
+	return setmetatable({
+		limbs = tclone(value.limbs),
+		signum = value.signum,
+	}, AptInt :: AptInt) :: AptInt
+end
+
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
 	local selfSign: number, divSign: number = self.signum, divisor.signum
 	local sameSign: boolean = selfSign == divSign
@@ -217,7 +225,7 @@ AP_NEG_ONE = AptInt.new(-1)
 
 -- Returns a copy of the AptInt.
 function AptInt:clone(): AptInt
-	return tclone(self) :: AptInt -- clones metatable too
+	return CopyAptInt(self)
 end
 
 -- Returns an AptInt with its sign flipped.
@@ -227,7 +235,7 @@ function AptInt:Negate(inPlace: boolean): AptInt
 		return self
 	end
 
-	local negated: AptInt = tclone(self)
+	local negated: AptInt = CopyAptInt(self)
 	negated.signum = -negated.signum
 	return negated
 end
@@ -242,9 +250,9 @@ function AptInt:AddRaw(term: AptInt, inPlace: boolean?): AptInt
 
 	--> CASES
 	if termSign == 0 then
-		return (inPlace and self or tclone(self))
+		return (inPlace and self or CopyAptInt(self))
 	elseif selfSign == 0 then
-		local clone: AptInt = tclone(term)
+		local clone: AptInt = CopyAptInt(term)
 		if inPlace then self = clone end
 
 		return clone
@@ -264,7 +272,7 @@ function AptInt:SubtractRaw(term: AptInt, inPlace: boolean?): AptInt
 
 	--> CASES
 	if termSign == 0 then -- b - 0 = 0
-		return (inPlace and self or tclone(self))
+		return (inPlace and self or CopyAptInt(self))
 	elseif selfSign == 0 then -- 0 - b = -b
 		local negate: AptInt = term:Negate()
 		if inPlace then self = negate end
@@ -326,7 +334,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 			return AP_NEG_ONE:clone(), divisor:SubtractRaw(NegateRef(self))
 		end
 
-		return FromLimbs({}), tclone(self)
+		return FromLimbs({}), CopyAptInt(self)
 	elseif comparison == 0 then -- U == V, x/x = 1
 		local div: AptInt = FromLimbs({1})
 		div.signum = selfSign / divSign
@@ -391,7 +399,7 @@ function AptInt:PowRaw(pow: AptInt): AptInt
 	end
 
 	if #powLimbs == 1 and powLimbs[1] == 1 then
-		return tclone(self)
+		return CopyAptInt(self)
 	elseif #selfLimbs == 1 and selfLimbs[1] == 1 then
 		local unit: AptInt = FromLimbs({1})
 		if selfSign == -1 and oddPow then
@@ -485,7 +493,7 @@ function AptInt:Abs(inPlace: boolean?): AptInt
 		return self
 	end
 	
-	local result: AptInt = tclone(self)
+	local result: AptInt = CopyAptInt(self)
 	result.signum = abs(result.signum)
 	return result
 end
@@ -499,7 +507,7 @@ function AptInt:Max(...: AptInt)
 		max = num
 	end
 	
-	return tclone(max)
+	return CopyAptInt(max)
 end
 
 -- Returns the minimum value among the arguments passed to the function.
@@ -511,7 +519,7 @@ function AptInt:Min(...: AptInt)
 		max = num
 	end
 
-	return tclone(max)
+	return CopyAptInt(max)
 end
 
 -- =====================
