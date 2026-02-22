@@ -270,7 +270,7 @@ function AptInt:AddRaw(term: AptInt, inPlace: boolean?): AptInt
 			self.limbs, self.signum = clone.limbs, clone.signum
 		end
 
-		return tclone(term)
+		return term
 	elseif selfSign == -1 and termSign == 1 then -- -a+b = b+(-a) = b-a
 		return (NegateRef(self):SubtractRaw(term, inPlace)):Negate(true)
 	elseif selfSign ~= termSign then -- +a+(-b)=a-b
