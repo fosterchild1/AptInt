@@ -268,7 +268,7 @@ function AptInt:AddRaw(term: AptInt, inPlace: boolean?): AptInt
 		local clone: AptInt = CopyAptInt(term)
 		if inPlace then self = clone end
 
-		return clone
+		return tclone(term)
 	elseif selfSign == -1 and termSign == 1 then -- -a+b = b+(-a) = b-a
 		return (NegateRef(self):SubtractRaw(term, inPlace)):Negate(true)
 	elseif selfSign ~= termSign then -- +a+(-b)=a-b
@@ -276,7 +276,9 @@ function AptInt:AddRaw(term: AptInt, inPlace: boolean?): AptInt
 	end
 	
 	local resultLimbs: {number} = Add.AddLimbs(self.limbs, term.limbs, inPlace)
-	return (inPlace and self or FromLimbs(resultLimbs))
+	local result: AptInt = (inPlace and self or FromLimbs(resultLimbs))
+	result.signum = selfSign -- keep sign for same-sign additions
+	return result
 end
 
 -- Returns an AptInt equal to <code>a - b</code>.
@@ -287,18 +289,29 @@ function AptInt:SubtractRaw(term: AptInt, inPlace: boolean?): AptInt
 	if termSign == 0 then -- b - 0 = 0
 		return (inPlace and self or CopyAptInt(self))
 	elseif selfSign == 0 then -- 0 - b = -b
-		local negate: AptInt = term:Negate()
-		if inPlace then self = negate end
+		if inPlace then
+			-- mutate receiver instead of rebinding local self
+			self.limbs = term.limbs
+			self.signum = -termSign
+			return self
+		end
 
-		return negate
+		return term:Negate()
 	elseif termSign == -1 and selfSign == 1 then -- a-(-b) = a+b
-		return NegateRef(term):AddRaw(self)
+		return self:AddRaw(NegateRef(term), inPlace)
 	elseif termSign == -1 and selfSign == -1 then -- (-a-(-b)) = b-a
 		return (NegateRef(self):SubtractRaw(NegateRef(term), inPlace)):Negate(true)
 	end
 
 	if self:LowerThanRaw(term) then
-		return term:SubtractRaw(self):Negate(true)
+		local result: AptInt = term:SubtractRaw(self):Negate(true)
+		if inPlace then
+			self.limbs = result.limbs
+			self.signum = result.signum
+			return self
+		end
+
+		return result
 	end
 	
 	local resultLimbs: {number} = Sub.SubLimbs(self.limbs, term.limbs, inPlace)
