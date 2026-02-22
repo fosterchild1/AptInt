@@ -43,12 +43,13 @@ local function NewtonHeronSqrt(n: {number}): {number}
 		local q: {number}, _: {number} = Div.DivLimbs(n, prev1)
 		local x1: {number} = Div.DivByInt(AddLimbs(prev1, q), 2, true)
 		
-		if Cmp.Equals(x1, prev1) then
+		local comparison = Cmp.Compare(x1, prev1)
+		if comparison == 0 then -- x1 == prev1
 			return x1
 		end
 		
 		if Cmp.Equals(x1, prev2) then
-			return (Cmp.LowerThan(x1, prev1) and x1 or prev1) -- min(x1, prev1)
+			return (comparison == -1 and x1 or prev1) -- min(x1, prev1)
 		end
 		
 		prev2, prev1 = prev1, x1
