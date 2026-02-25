@@ -32,8 +32,8 @@ For division, we do a 2NxN division. (2N = digit count)
 
 | Digit count | Addition | Subtraction | Multiplication | Division | Square root |
 | ---  | --- | --- | --- | --- | --- |
-| 1 | 1μs | 1μs | 1μs | 2μs | 54μs |
-| 50 | 1μs | 3μs | 4μs | 11μs | 136μs |
+| 1 | 1μs | 1μs | 1μs | 2μs | 29μs |
+| 50 | 1μs | 3μs | 4μs | 11μs | 81μs |
 | 100 | 2μs | 7μs | 6μs | 24μs | 157μs |
 | 500 | 5μs | 9μs | 56μs | 49μs | 311μs |
 | 1,000 | 7μs | 13μs | 225μs | 153μs | 468μs |
