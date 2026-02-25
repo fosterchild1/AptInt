@@ -31,6 +31,37 @@ local SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
 local tcreate: (number, number) -> {number} = table.create
 
 local SQRT_KARATSUBA_THRESHOLD: number = Constants.SQRT_KARATSUBA_THRESHOLD
+local SQRT_NEWTON_THRESHOLD: number = Constants.SQRT_NEWTON_THRESHOLD
+
+local function BinarySearchSqrt(n: {number}) : {number}
+	--> get low and high, range of high to low is BASE
+	--> at most BASE_POW checks
+	
+	local half: number = (#n + 1)//2
+	local low: {number} = tcreate(half, 0) -- initial guess
+	low[#low] = 1
+	
+	local high: {number} = tcreate(half+1, 0)
+	high[#high] = 1
+	
+	while Cmp.LowerOrEqualTo(low, high) do
+		local mid: {number} = AddLimbs(low, high)
+		Div.DivByInt(mid, 2, true)
+		
+		local sq: {number} = Mul.MulLimbs(mid, mid)
+		local comparison: number = Cmp.Compare(sq, n)
+		if comparison == 0 then -- sq == n
+			return mid
+		elseif comparison == -1 then -- sq < n
+			low = AddLimbs(mid, {1}, true)
+			continue
+		end
+		
+		high = SubLimbs(mid, {1}, true)
+	end
+	
+	return high
+end
 
 local function NewtonHeronSqrt(n: {number}): {number}
 	local prev2: {number} = {1}
@@ -43,13 +74,14 @@ local function NewtonHeronSqrt(n: {number}): {number}
 		local q: {number}, _: {number} = Div.DivLimbs(n, prev1)
 		local x1: {number} = Div.DivByInt(AddLimbs(prev1, q), 2, true)
 		
-		local comparison = Cmp.Compare(x1, prev1)
-		if comparison == 0 then -- x1 == prev1
+		--> Cmp.Compare isnt faster here because LowerThan only runs once
+		--> Cmp.Equals is way faster
+		if Cmp.Equals(x1, prev1)then
 			return x1
 		end
 		
 		if Cmp.Equals(x1, prev2) then
-			return (comparison == -1 and x1 or prev1) -- min(x1, prev1)
+			return (Cmp.LowerThan(x1, prev1) and x1 or prev1) -- min(x1, prev1)
 		end
 		
 		prev2, prev1 = prev1, x1
@@ -63,7 +95,7 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	--> needed here too
 	local limbLen: number = #n
 	if limbLen < SQRT_KARATSUBA_THRESHOLD then
-		local sq: {number} = NewtonHeronSqrt(n)
+		local sq: {number} = Sqrt.ISqrtLimbs(n)
 		return sq, SubLimbs(n, Mul.MulLimbs(sq, sq))
 	end
 
@@ -101,12 +133,16 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 end
 
 function Sqrt.ISqrtLimbs(limbs: {number}): {number}
-	if #limbs >= SQRT_KARATSUBA_THRESHOLD then
+	local len: number = #limbs
+	
+	if len >= SQRT_KARATSUBA_THRESHOLD then
 		local s: {number}, _: {number} = KaratsubaSqrt(limbs)
 		return s
+	elseif len >= SQRT_NEWTON_THRESHOLD then
+		return NewtonHeronSqrt(limbs)
 	end
 
-	return NewtonHeronSqrt(limbs)
+	return BinarySearchSqrt(limbs)
 end
 
 return Sqrt
