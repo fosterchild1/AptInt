@@ -50,8 +50,7 @@ function Cmp.Equals(x: {number}, y: {number}): boolean
 	end
 
 	for i: number, xLimb: number in x do
-		if xLimb == y[i] then continue end
-		return false
+		if xLimb ~= y[i] then return false end
 	end
 
 	return true 

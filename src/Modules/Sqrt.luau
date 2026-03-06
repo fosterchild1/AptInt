@@ -53,11 +53,11 @@ local function BinarySearchSqrt(n: {number}) : {number}
 		if comparison == 0 then -- sq == n
 			return mid
 		elseif comparison == -1 then -- sq < n
-			low = AddLimbs(mid, {1}, true)
+			low = Add.AddByInt(mid, 1, true)
 			continue
 		end
 		
-		high = SubLimbs(mid, {1}, true)
+		high = Sub.SubByInt(mid, 1, true)
 	end
 	
 	return high
@@ -125,8 +125,8 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	
 	--> correct
 	if willCorrect then
-		r = SubLimbs(AddLimbs(r, AddLimbs(s, s), true), {1}, true)
-		s = SubLimbs(s, {1}, true)
+		r = Sub.SubByInt(AddLimbs(r, AddLimbs(s, s), true), 1, true)
+		s = Sub.SubByInt(s, 1, true)
 	end
 
 	return s, r

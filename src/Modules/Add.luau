@@ -37,13 +37,13 @@ local function MinAdd(term: {number}, result: {number}): {number}
 	if sum == 0 then return result end
 
 	--> carry loop
-	local resultIndex: number = #term
+	local resultIndex: number = #term + 1
 	while true do
-		resultIndex += 1
 		sum = (result[resultIndex] or 0) + 1
 
 		if sum >= BASE then
 			result[resultIndex] = sum - BASE
+			resultIndex += 1
 			continue
 		end
 
@@ -51,6 +51,28 @@ local function MinAdd(term: {number}, result: {number}): {number}
 		break
 	end
 
+	return result
+end
+
+function Add.AddByInt(self: {number}, num: number, inPlace: boolean?): {number}
+	local result: {number} = (inPlace and self or tclone(self))
+	local sum: number = result[1] + num
+	
+	--> carry loop
+	local resultIndex: number = 1
+	while true do
+		sum = (result[resultIndex] or 0) + 1
+
+		if sum >= BASE then
+			result[resultIndex] = sum - BASE
+			resultIndex += 1
+			continue
+		end
+		
+		result[resultIndex] = sum
+		break
+	end
+	
 	return result
 end
 
