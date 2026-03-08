@@ -8,6 +8,7 @@ local Utils = require("./Utils")
 local Constants = require("../Constants")
 local Add = require("./Add")
 local Sub = require("./Sub")
+local Cmp = require("./Cmp")
 
 -- ================================
 --> OPTIMIAZTION FUNCTION CONSTANTS
@@ -132,7 +133,14 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	
 	local da1: {number} = AddLimbs(x2, x0)
 	local db1: {number} = AddLimbs(y2, y0)
-	local vm1: {number} = Mul.MulLimbs(SubLimbs(da1, x1), SubLimbs(db1, y1))
+	
+	--> these can be negative so we have to account for their sign
+	local da1neg: boolean, db1neg: boolean = Cmp.LowerThan(da1, x1), Cmp.LowerThan(db1, y1)
+	local vm1lhs: {number} = da1neg and SubLimbs(x1, da1) or SubLimbs(da1, x1)
+	local vm1rhs: {number} = db1neg and SubLimbs(y1, db1) or SubLimbs(db1, y1)
+	
+	local vm1: {number} = Mul.MulLimbs(vm1lhs, vm1rhs)
+	local vm1neg: boolean = da1neg ~= db1neg
 	
 	da1 = AddLimbs(da1, x1, true)
 	db1 = AddLimbs(db1, y1, true)
@@ -145,15 +153,19 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	v2 = Mul.MulLimbs(v2, SubLimbs(AddLimbs(db1, db1, true), y0, true))
 	
 	--> all divisions here are single-limb, so they are linear.
-	Utils.DivByInt(SubLimbs(v2, vm1, true), 3, true)
-	local tm1: {number} = Utils.DivByInt(SubLimbs(v1, vm1), 2, true)
+	v2 = (vm1neg and AddLimbs(v2, vm1, true) or SubLimbs(v2, vm1, true))
+	Utils.DivByInt(v2, 3, true)
+	
+	local tm1: {number} = vm1neg and AddLimbs(v1, vm1) or SubLimbs(v1, vm1)
+	Utils.DivByInt(tm1, 2, true)
+	
 	v1 = SubLimbs(v1, v0, true)
 	
 	Utils.DivByInt(SubLimbs(v2, v1, true), 2, true)
 	v1 = SubLimbs(SubLimbs(v1, tm1, true), vinf, true)
 	v2 = SubLimbs(v2, AddLimbs(vinf, vinf), true)
 	tm1 = SubLimbs(tm1, v2, true)
-
+	
 	--> combine to get result
 	local result: {number} = LeftShift(vinf, k)
 	result = AddLimbs(result, v2, true); result = LeftShift(result, k)
