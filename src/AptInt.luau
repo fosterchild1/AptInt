@@ -22,6 +22,7 @@ local Div = require("./Modules/Div")
 local Sqrt = require("./Modules/Sqrt")
 local Pow = require("./Modules/Pow")
 local Cmp = require("./Modules/Cmp")
+local Radix = require("./Modules/Radix")
 local Type = require("./Type")
 
 export type AptInt = Type.AptInt
@@ -63,50 +64,7 @@ local ONE_LIMB: {number} = {1}
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 	["string"] = function(str: string): ({number}, number)
-		local isNegative: boolean = str:sub(1, 1) == "-"
-		if isNegative then
-			str = str:sub(2, #str)
-		end
-		
-		--> canonicalize all-zero/leading-zero decimal strings
-		local firstNonZero: number? = str:find("[^0]")
-		if firstNonZero == nil then
-			return {}, 0
-		elseif firstNonZero ~= 1 then
-			str = str:sub(firstNonZero, #str)
-		end
-		
-		--> TODO: we could probably use algoritm 1.25 FastIntegerInput
-		--> convert from decimal to base 2^24
-		local out: {number} = {}
-		local chunks: {number} = {}
-		
-		for i: number = #str, 1, -8 do
-			local start: number = max(i - 7, 1)
-			tinsert(chunks, tonumber(str:sub(start, i)) or 0)
-		end
-		
-		while #chunks > 0 do
-			local carry: number = 0
-			for i: number = #chunks, 1, -1 do
-				local val: number = chunks[i] + carry * RADIX_CHUNK_SIZE
-
-				chunks[i] = val // BASE
-				carry = val % BASE
-			end
-			
-			tinsert(out, carry)
-			
-			--> stripleadingzeros
-			while true do 
-				local len: number = #chunks 
-				if len == 0 or chunks[len] ~= 0 then break end 
-
-				chunks[len] = nil 
-			end
-		end
-
-		return out, (isNegative and -1 or 1)
+		return Radix.fromString(str)
 	end,
 
 	["number"] = function(num: number): ({number}, number)
