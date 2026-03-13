@@ -6,6 +6,7 @@ return {
 	RADIX_LEN_CONST = 7.224719895935548, -- BASE_POW * log10(2)
 	RADIX_CHUNK_SIZE = 10^8,
 	RADIX_CHUNK_POW = 8,
+	MAX_TONUMBER_LEN = 43, -- min{k | BASE^k > 2^1024-1}
 	
 	--> algorithm constants (size in limbs)
 	MIN_MINADD_OFFSET = 20,

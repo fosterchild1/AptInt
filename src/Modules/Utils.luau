@@ -13,12 +13,11 @@ local tmove: ({number}, number, number, number, {number}) -> {number} = table.mo
 
 local BASE: number = Constants.BASE
 
-function Utils.StripLeadingZeros(limbs: {number}): ()
-	while true do
-		local limbLen: number = #limbs
-		if limbLen == 0 or limbs[limbLen] ~= 0 then break end
-
-		limbs[limbLen] = nil
+function Utils.StripLeadingZeros(array: {number}): ()
+	local len: number = #array
+	while len > 0 and array[len] == 0 do
+		array[len] = nil
+		len -= 1
 	end
 end
 

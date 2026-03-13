@@ -87,8 +87,8 @@ function Add.AddLimbs(self: {number}, term: {number}, inPlace: boolean?): {numbe
 	else
 		result = (inPlace and self or tclone(self))
 	end
-
-	if abs(termLen - selfLen) > MIN_MINADD_OFFSET then
+	
+	if inPlace or abs(termLen - selfLen) > MIN_MINADD_OFFSET then
 		return MinAdd(term, result)
 	end
 	

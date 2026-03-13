@@ -56,7 +56,7 @@ local sformat: (string, ...unknown) -> string = string.format
 local BASE: number = Constants.BASE
 
 local RADIX_LEN_CONST: number = Constants.RADIX_LEN_CONST
-local RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
+local MAX_TONUMBER_LEN: number = Constants.MAX_TONUMBER_LEN
 
 local AP_NEG_ONE: AptInt
 local ONE_LIMB: {number} = {1}
@@ -430,43 +430,16 @@ function AptInt:ToString(): string
 		return "0"
 	end
 	
-	--> we convert from base 2^k to base 10 in chunks of 8 digits
-	--> 8 = max {k | 2^24 * 10^k < 2^53}
-	local limbs: {number} = self.limbs
-	local clone: {number} = tclone(limbs)
-
-	local chunkAmount: number = ceil(#clone * log10(BASE) / floor(log10(RADIX_CHUNK_SIZE)))
-	local chunks: {string} = tcreate(chunkAmount, "")
-
-	local chunkIdx: number = chunkAmount
-	while #clone > 0 do
-		local carry: number = 0
-		for i: number = #clone, 1, -1 do
-			local val: number = clone[i] + carry * BASE
-
-			carry = val % RADIX_CHUNK_SIZE
-			clone[i] = val // RADIX_CHUNK_SIZE
-		end
-
-		--> we write in reverse order
-		chunks[chunkIdx] = sformat("%08d", carry)
-		chunkIdx -= 1
-
-		-- stripleadingzeros 
-		while true do 
-			local len: number = #clone 
-			if len == 0 or clone[len] ~= 0 then break end 
-
-			clone[len] = nil 
-		end
-	end
-
-	local str: string = tconcat(chunks):gsub("^0+", "") -- removes leading zeros, fast
-	return self.signum == -1 and `-{str}` or str
+	local absValue: string = Radix.ToString(self.limbs)
+	return self.signum == 1 and absValue or `-{absValue}`
 end
 
 -- Returns a double equal to <code>tonumber(x)</code>
 function AptInt:ToNumber(): number
+	if #(self :: AptInt).limbs >= MAX_TONUMBER_LEN then
+		return math.huge * (self :: AptInt).signum
+	end
+	
 	return tonumber(self:ToString()) :: number
 end
 
