@@ -31,6 +31,6 @@ Exponentiation uses O(n log n) [exponentiation by squaring](https://en.wikipedia
 - Karatsuba sqrt: For n > `SQRT_KARATSUBA_THRESHOLD`, runs [Karatsuba sqrt](https://inria.hal.science/inria-00072854v1/file/RR-3805.pdf) in M(n) time, where M(n) = time to multiply two n-sized numbers.
 
 ### Radix conversion
-`:ToNumber()` is O(1), as any input >43 limbs is equal to `math.huge`.
-For `.FromString()`, O(M(N) log n) [Algorithm 1.25 FastIntegerInput from Modern Computer Arithmetic](https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf) is used
+`:ToNumber()` is O(1), as any input >43 limbs is equal to `math.huge`.<br/>
+For `.FromString()`, O(M(n) log n) [Algorithm 1.25 FastIntegerInput from Modern Computer Arithmetic](https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf) is used.<br/>
 For `:ToString()`, [Algorithm 1.26 FastIntegerOutput from Modern Computer Arithmetic](https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf) was considered, but it was deemed to have too slow.
