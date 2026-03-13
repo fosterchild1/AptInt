@@ -25,10 +25,12 @@ No algorithms used.<br/>
 Exponentiation uses O(n log n) [exponentiation by squaring](https://en.wikipedia.org/wiki/Exponentiation_by_squaring).
 
 ### Square root
-2 algorithms are used to find the square root:
-- Basecase sqrt: O(n^2 log n) [Newton-Heron](https://en.wikipedia.org/wiki/Integer_square_root#Algorithm_using_Newton's_method) square root.
-- Karatsuba sqrt: For n,m > `SQRT_KARATSUBA_THRESHOLD`, runs [Karatsuba sqrt](https://inria.hal.science/inria-00072854v1/file/RR-3805.pdf) in M(n) time, where M(n) = time to multiply two n-sized numbers.
-   - Binary search was considered, but it was deemed too slow.
+3 algorithms are used to find the square root:
+- Basecase sqrt: O(n^2 log n) Binary search is used.
+- Newton-Heron sqrt: For n > `SQRT_NEWTON_THRESHOLD`, Optimized O(n^2 log n) [Newton-Heron sqrt](https://en.wikipedia.org/wiki/Integer_square_root#Algorithm_using_Newton's_method) is used.
+- Karatsuba sqrt: For n > `SQRT_KARATSUBA_THRESHOLD`, runs [Karatsuba sqrt](https://inria.hal.science/inria-00072854v1/file/RR-3805.pdf) in M(n) time, where M(n) = time to multiply two n-sized numbers.
 
 ### Radix conversion
-For `:ToString()`, [Algorithm 1.26 from Modern Computer Arithmetic](https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf) was considered, but it was deemed to have too slow.
+`:ToNumber()` is O(1), as any input >43 limbs is equal to `math.huge`.
+For `.FromString()`, O(M(N) log n) [Algorithm 1.25 FastIntegerInput from Modern Computer Arithmetic](https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf) is used
+For `:ToString()`, [Algorithm 1.26 FastIntegerOutput from Modern Computer Arithmetic](https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf) was considered, but it was deemed to have too slow.
