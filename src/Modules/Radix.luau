@@ -9,7 +9,8 @@ local Utils = require("./Utils")
 local Add = require("./Add")
 local Mul = require("./Mul")
 
-local tcreate: (number, V) -> {V} = table.create
+--> FUNCTION CONSTANTS
+local tcreate: <V>(number, V) -> {V} = table.create
 local tclone: ({number}) -> {number} = table.clone
 local tinsert: ({number}, number) -> () = table.insert
 local tconcat: ({string}) -> string = table.concat
@@ -26,10 +27,11 @@ local RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
 local RADIX_CHUNK_POW: number = Constants.RADIX_CHUNK_POW - 1
 local BASE: number = Constants.BASE
 
-local ZERO: {number} = {0} -- reduces GC time by a lot
+local ZERO: {number} = {0} -- reduces GC time
 
 local squareCache: {{number}} = {}
-local function squareBase(b: {number}, depth: number)
+
+local function SquareBase(b: {number}, depth: number): {number}
 	if squareCache[depth] then return squareCache[depth] end
 	
 	local sq: {number} = Mul.MulLimbs(b, b)
@@ -37,6 +39,20 @@ local function squareBase(b: {number}, depth: number)
 	
 	return sq
 end
+--[[
+local function AddToCache(str: string, limbs: {number}): ()
+	local size: number = #limbs
+	
+	stringCacheSize += size * 64
+	--> TODO: this is definetly not the best way
+	--> we could delete from idx = 1 and increment upwards so only old ones get deleted
+	if stringCacheSize > MAX_STRING_CACHE_SIZE then
+		stringCacheSize = 0
+		stringCache = {}
+	end
+	
+	stringCache[str] = tclone(limbs)
+end]]
 
 function Radix.fromString(str: string): ({number}, number)
 	--> Algorithm 1.25: FastIntegerInput
@@ -80,7 +96,7 @@ function Radix.fromString(str: string): ({number}, number)
 		end
 		
 		l = new
-		b = squareBase(b, depth); depth += 1
+		b = SquareBase(b, depth); depth += 1
 		k = ceil(k/2)
 	end
 	

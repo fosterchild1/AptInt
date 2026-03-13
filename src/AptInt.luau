@@ -90,13 +90,11 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 		local len: number = #tbl
 		if len == 0 then
 			return {}, 0
-		end
-
-		if tbl[len] ~= 0 then
+		elseif tbl[len] ~= 0 then
 			return tbl, 1
 		end
 
-		--> canonicalize zero/trailing-zero table constructor inputs.
+		--> strip leading zeros
 		while len > 0 and tbl[len] == 0 do
 			len -= 1
 		end
@@ -150,14 +148,6 @@ local function FromLimbs(limbs: {number}): AptInt
 	}, AptInt :: AptInt) :: AptInt
 end
 
-local function CopyAptInt(value: AptInt): AptInt
-	-- clone limb storage too so returned values stay isolated.
-	return setmetatable({
-		limbs = tclone(value.limbs),
-		signum = value.signum,
-	}, AptInt :: AptInt) :: AptInt
-end
-
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
 	local selfSign: number, divSign: number = self.signum, divisor.signum
 	local sameSign: boolean = selfSign == divSign
@@ -191,12 +181,15 @@ function AptInt.new(num: ValidConstructor): AptInt
 	}, AptInt :: AptInt) :: AptInt
 end
 
---> this is ugly. needed constants in MulToom3 and division
+--> this is ugly
 AP_NEG_ONE = AptInt.new(-1)
 
 -- Returns a copy of the AptInt.
 function AptInt:clone(): AptInt
-	return CopyAptInt(self)
+	return setmetatable({
+		limbs = tclone(self.limbs),
+		signum = self.signum,
+	}, AptInt :: AptInt) :: AptInt
 end
 
 -- Returns an AptInt with its sign flipped.
@@ -206,7 +199,7 @@ function AptInt:Negate(inPlace: boolean): AptInt
 		return self
 	end
 
-	local negated: AptInt = CopyAptInt(self)
+	local negated: AptInt = self:clone()
 	negated.signum = -negated.signum
 	return negated
 end
@@ -221,9 +214,9 @@ function AptInt:AddRaw(term: AptInt, inPlace: boolean?): AptInt
 
 	--> CASES
 	if termSign == 0 then
-		return (inPlace and self or CopyAptInt(self))
+		return (inPlace and self or self:clone())
 	elseif selfSign == 0 then
-		local clone: AptInt = CopyAptInt(term)
+		local clone: AptInt = term:clone()
 		if inPlace then 
 			self.limbs, self.signum = clone.limbs, clone.signum
 		end
@@ -247,7 +240,7 @@ function AptInt:SubtractRaw(term: AptInt, inPlace: boolean?): AptInt
 
 	--> CASES
 	if termSign == 0 then -- b - 0 = 0
-		return (inPlace and self or CopyAptInt(self))
+		return (inPlace and self or self:clone())
 	elseif selfSign == 0 then -- 0 - b = -b
 		local negated = term:Negate()
 		if inPlace then
@@ -318,7 +311,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 			return AP_NEG_ONE:clone(), divisor:SubtractRaw(NegateRef(self))
 		end
 
-		return FromLimbs({}), CopyAptInt(self)
+		return FromLimbs({}), self:clone()
 	elseif comparison == 0 then -- U == V, x/x = 1
 		local div: AptInt = FromLimbs({1})
 		div.signum = selfSign / divSign
@@ -383,7 +376,7 @@ function AptInt:PowRaw(pow: AptInt): AptInt
 	end
 
 	if #powLimbs == 1 and powLimbs[1] == 1 then
-		return CopyAptInt(self)
+		return self:clone()
 	elseif #selfLimbs == 1 and selfLimbs[1] == 1 then
 		local unit: AptInt = FromLimbs({1})
 		if selfSign == -1 and oddPow then
@@ -450,7 +443,7 @@ function AptInt:Abs(inPlace: boolean?): AptInt
 		return self
 	end
 	
-	local result: AptInt = CopyAptInt(self)
+	local result: AptInt = self:clone()
 	result.signum = abs(result.signum)
 	return result
 end
@@ -464,19 +457,19 @@ function AptInt:Max(...: AptInt)
 		max = num
 	end
 	
-	return CopyAptInt(max)
+	return max:clone()
 end
 
 -- Returns the minimum value among the arguments passed to the function.
 function AptInt:Min(...: AptInt)
-	local max: AptInt = self
+	local min: AptInt = self
 
 	for _: number, num: AptInt in {...} do
-		if max:LowerThanRaw(num) then continue end
-		max = num
+		if min:LowerThanRaw(num) then continue end
+		min = num
 	end
 
-	return CopyAptInt(max)
+	return min:clone()
 end
 
 -- =====================
