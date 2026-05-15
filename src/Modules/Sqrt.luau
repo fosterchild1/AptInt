@@ -16,22 +16,22 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-local GetUpper: ({number}, number) -> {number} = Utils.GetUpper
-local GetLower: ({number}, number) -> {number} = Utils.GetLower
-local GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
-local LeftShift: ({number}, number) -> {number} = Utils.LeftShift
+const GetUpper: ({number}, number) -> {number} = Utils.GetUpper
+const GetLower: ({number}, number) -> {number} = Utils.GetLower
+const GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
+const LeftShift: ({number}, number) -> {number} = Utils.LeftShift
 
-local AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
-local SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
+const AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
+const SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
 
 -- =================
 --> NORMAL CONSTANTS
 -- =================
 
-local tcreate: (number, number) -> {number} = table.create
+const tcreate: (number, number) -> {number} = table.create
 
-local SQRT_KARATSUBA_THRESHOLD: number = Constants.SQRT_KARATSUBA_THRESHOLD
-local SQRT_NEWTON_THRESHOLD: number = Constants.SQRT_NEWTON_THRESHOLD
+const SQRT_KARATSUBA_THRESHOLD: number = Constants.SQRT_KARATSUBA_THRESHOLD
+const SQRT_NEWTON_THRESHOLD: number = Constants.SQRT_NEWTON_THRESHOLD
 
 local function BinarySearchSqrt(n: {number}) : {number}
 	--> get low and high, range of high to low is BASE
@@ -145,4 +145,4 @@ function Sqrt.ISqrtLimbs(limbs: {number}): {number}
 	return BinarySearchSqrt(limbs)
 end
 
-return Sqrt
+return table.freeze(Sqrt)

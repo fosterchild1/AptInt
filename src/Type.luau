@@ -14,10 +14,14 @@ export type AptIntMetatable = {
 	__len: (n: AptInt) -> number,
 }
 
-export type AptInt = setmetatable<{
+export type AptIntData = {
 	limbs: {number},
 	signum: number,
-	
+}
+
+export type AptInt = setmetatable<AptIntData & AptIntAPI, AptIntMetatable>
+
+export type AptIntAPI = {
 	read clone: (n: AptInt) -> AptInt,
 	read Negate: (n: AptInt, inPlace: boolean?) -> AptInt,
 
@@ -42,7 +46,7 @@ export type AptInt = setmetatable<{
 	read Abs: (self: AptInt, inPlace: boolean?) -> AptInt,
 	read Min: (self: AptInt, ...AptInt) -> AptInt,
 	read Max: (self: AptInt, ...AptInt) -> AptInt,
-}, AptIntMetatable>
+}
 
 export type ValidConstructor = string | number | {number} | nil
 export type ValidMetamethodArgument = string | number | AptInt

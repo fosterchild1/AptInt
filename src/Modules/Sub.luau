@@ -7,9 +7,9 @@ local Sub = {}
 local Utils = require("./Utils")
 local Constants = require("../Constants")
 
-local tclone: ({number}) -> {number} = table.clone
+const tclone: ({number}) -> {number} = table.clone
 
-local BASE: number = Constants.BASE
+const BASE: number = Constants.BASE
 
 function Sub.SubByInt(self: {number}, num: number, inPlace: boolean?): {number}
 	local result: {number} = (inPlace and self or tclone(self))
@@ -58,4 +58,4 @@ function Sub.SubLimbs(self: {number}, term: {number}, inPlace: boolean?): {numbe
 	return result
 end
 
-return Sub
+return table.freeze(Sub)

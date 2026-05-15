@@ -11,7 +11,7 @@
 --]]
 -- ===============================================================
 
-local AptInt = {}
+local AptInt: Type.AptIntAPI = {}
 AptInt.__index = AptInt
 
 local Constants = require("./Constants")
@@ -33,33 +33,33 @@ export type ValidConstructor = Type.ValidConstructor
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-local log10: (number) -> number = math.log10
-local floor: (number) -> number = math.floor
-local ceil: (number) -> number = math.ceil
-local max: (number, number) -> number = math.max
-local abs: (number) -> number = math.abs
-local sign: (number) -> number = math.sign
+const log10: (number) -> number = math.log10
+const floor: (number) -> number = math.floor
+const ceil: (number) -> number = math.ceil
+const max: (number, number) -> number = math.max
+const abs: (number) -> number = math.abs
+const sign: (number) -> number = math.sign
 
 -- the types here may be off, but native optimizes them more than their actual types
-local tcreate: <V>(number, V) -> {V} = table.create
-local tinsert: <V>({V}, V) -> () = table.insert
-local tconcat: <V>({V}, string?, number?, number?) -> string = table.concat
-local tmove: ({number}, number, number, number, {number}) -> {number} = table.move
-local tclone: <V>(V) -> V = table.clone
+const tcreate: <V>(number, V) -> {V} = table.create
+const tinsert: <V>({V}, V) -> () = table.insert
+const tconcat: <V>({V}, string?, number?, number?) -> string = table.concat
+const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
+const tclone: <V>(V) -> V = table.clone
 
-local sformat: (string, ...unknown) -> string = string.format
+const sformat: (string, ...unknown) -> string = string.format
 
 -- =================
 --> NORMAL CONSTANTS
 -- =================
 
-local BASE: number = Constants.BASE
+const BASE: number = Constants.BASE
 
-local RADIX_LEN_CONST: number = Constants.RADIX_LEN_CONST
-local MAX_TONUMBER_LEN: number = Constants.MAX_TONUMBER_LEN
+const RADIX_LEN_CONST: number = Constants.RADIX_LEN_CONST
+const MAX_TONUMBER_LEN: number = Constants.MAX_TONUMBER_LEN
 
 local AP_NEG_ONE: AptInt
-local ONE_LIMB: {number} = {1}
+const ONE_LIMB: {number} = {1}
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
@@ -128,7 +128,7 @@ local function ArgumentToAptInt(num: ValidMetamethodArgument?, errContext: strin
 			`attempt to perform arithmetic ({errContext}) on AptInt and {numType}`
 		)
 
-		bigint = AptInt.new(num :: ValidConstructor)
+		bigint = AptInt.new(num)
 	end
 
 	return bigint
@@ -138,14 +138,14 @@ local function NegateRef(n: AptInt): AptInt
 	return setmetatable({
 		limbs = n.limbs,
 		signum = -n.signum,
-	}, AptInt :: AptInt) :: AptInt
+	}, AptInt)
 end
 
 local function FromLimbs(limbs: {number}): AptInt
 	return setmetatable({
 		limbs = limbs,
 		signum = #limbs == 0 and 0 or 1,
-	}, AptInt :: AptInt) :: AptInt
+	}, AptInt)
 end
 
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
@@ -178,7 +178,7 @@ function AptInt.new(num: ValidConstructor): AptInt
 	return setmetatable({
 		limbs = limbs,
 		signum = signum
-	}, AptInt :: AptInt) :: AptInt
+	}, AptInt)
 end
 
 --> this is ugly
@@ -189,7 +189,7 @@ function AptInt:clone(): AptInt
 	return setmetatable({
 		limbs = tclone(self.limbs),
 		signum = self.signum,
-	}, AptInt :: AptInt) :: AptInt
+	}, AptInt)
 end
 
 -- Returns an AptInt with its sign flipped.

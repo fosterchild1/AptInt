@@ -6,12 +6,12 @@ local Utils = {}
 
 local Constants = require("../Constants")
 
-local tinsert: ({number}, number) -> () = table.insert
-local tcreate: (number, number) -> {number} = table.create
-local tclone: ({number}) -> {number} = table.clone
-local tmove: ({number}, number, number, number, {number}) -> {number} = table.move
+const tinsert: ({number}, number) -> () = table.insert
+const tcreate: (number, number) -> {number} = table.create
+const tclone: ({number}) -> {number} = table.clone
+const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
 
-local BASE: number = Constants.BASE
+const BASE: number = Constants.BASE
 
 function Utils.StripLeadingZeros(array: {number}): ()
 	local len: number = #array

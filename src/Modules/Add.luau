@@ -6,13 +6,13 @@ local Add = {}
 
 local Constants = require("../Constants")
 
-local abs: (number) -> number = math.abs
+const abs: (number) -> number = math.abs
 
-local tclone: ({number}) -> {number} = table.clone
-local tinsert: ({number}, number) -> () = table.insert
+const tclone: ({number}) -> {number} = table.clone
+const tinsert: ({number}, number) -> () = table.insert
 
-local BASE: number = Constants.BASE
-local MIN_MINADD_OFFSET: number = Constants.MIN_MINADD_OFFSET
+const BASE: number = Constants.BASE
+const MIN_MINADD_OFFSET: number = Constants.MIN_MINADD_OFFSET
 
 local function MinAdd(term: {number}, result: {number}): {number}
 	--> since result has self's limbs, we can just iterate over y
@@ -111,4 +111,4 @@ function Add.AddLimbs(self: {number}, term: {number}, inPlace: boolean?): {numbe
 	return result
 end
 
-return Add
+return table.freeze(Add)

@@ -10,24 +10,24 @@ local Add = require("./Add")
 local Mul = require("./Mul")
 
 --> FUNCTION CONSTANTS
-local tcreate: <V>(number, V) -> {V} = table.create
-local tclone: ({number}) -> {number} = table.clone
-local tinsert: ({number}, number) -> () = table.insert
-local tconcat: ({string}) -> string = table.concat
+const tcreate: <V>(number, V) -> {V} = table.create
+const tclone: ({number}) -> {number} = table.clone
+const tinsert: ({number}, number) -> () = table.insert
+const tconcat: ({string}) -> string = table.concat
 
-local ceil: (number) -> number = math.ceil
-local floor: (number) -> number = math.floor
-local log10: (number) -> number = math.log10
-local max: (number, number) -> number = math.max
+const ceil: (number) -> number = math.ceil
+const floor: (number) -> number = math.floor
+const log10: (number) -> number = math.log10
+const max: (number, number) -> number = math.max
 
-local sformat: (string, number) -> string = string.format
+const sformat: (string, number) -> string = string.format
 
 --> -1 because 2^BASE < RADIX_CHUNK_SIZE
-local RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
-local RADIX_CHUNK_POW: number = Constants.RADIX_CHUNK_POW - 1
-local BASE: number = Constants.BASE
+const RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
+const RADIX_CHUNK_POW: number = Constants.RADIX_CHUNK_POW - 1
+const BASE: number = Constants.BASE
 
-local ZERO: {number} = {0} -- reduces GC time
+const ZERO: {number} = {0} -- reduces GC time
 
 local squareCache: {{number}} = {}
 
@@ -39,20 +39,6 @@ local function SquareBase(b: {number}, depth: number): {number}
 	
 	return sq
 end
---[[
-local function AddToCache(str: string, limbs: {number}): ()
-	local size: number = #limbs
-	
-	stringCacheSize += size * 64
-	--> TODO: this is definetly not the best way
-	--> we could delete from idx = 1 and increment upwards so only old ones get deleted
-	if stringCacheSize > MAX_STRING_CACHE_SIZE then
-		stringCacheSize = 0
-		stringCache = {}
-	end
-	
-	stringCache[str] = tclone(limbs)
-end]]
 
 function Radix.fromString(str: string): ({number}, number)
 	--> Algorithm 1.25: FastIntegerInput
@@ -137,4 +123,4 @@ function Radix.ToString(limbs: {number}): string
 	return str
 end
 
-return Radix
+return table.freeze(Radix)

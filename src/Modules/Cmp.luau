@@ -73,4 +73,4 @@ function Cmp.Compare(x: {number}, y: {number}): number
 	return 0
 end
 
-return Cmp
+return table.freeze(Cmp)

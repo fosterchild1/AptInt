@@ -38,4 +38,4 @@ function Pow.PowLimbs(limbs: {number}, exp: {number}): {number}
 	return result
 end
 
-return Pow
+return table.freeze(Pow)

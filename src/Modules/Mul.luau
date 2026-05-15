@@ -14,29 +14,29 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-local GetUpper: ({number}, number) -> {number} = Utils.GetUpper
-local GetLower: ({number}, number) -> {number} = Utils.GetLower
-local GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
-local LeftShift: ({number}, number) -> {number} = Utils.LeftShift
+const GetUpper: ({number}, number) -> {number} = Utils.GetUpper
+const GetLower: ({number}, number) -> {number} = Utils.GetLower
+const GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
+const LeftShift: ({number}, number) -> {number} = Utils.LeftShift
 
-local AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
-local SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
+const AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
+const SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
 
-local max: (number, number) -> number = math.max
-local min: (number, number) -> number = math.min
+const max: (number, number) -> number = math.max
+const min: (number, number) -> number = math.min
 
-local tclone: ({number}) -> {number} = table.clone
-local tcreate: (number, number) -> {number} = table.create
-local tinsert: ({number}, number) -> () = table.insert
+const tclone: ({number}) -> {number} = table.clone
+const tcreate: (number, number) -> {number} = table.create
+const tinsert: ({number}, number) -> () = table.insert
 
 -- =================
 --> NORMAL CONSTANTS
 -- =================
 
-local KARATSUBA_THRESHOLD: number = Constants.KARATSUBA_THRESHOLD
-local TOOM3_THRESHOLD: number = Constants.TOOM3_THRESHOLD
+const KARATSUBA_THRESHOLD: number = Constants.KARATSUBA_THRESHOLD
+const TOOM3_THRESHOLD: number = Constants.TOOM3_THRESHOLD
 
-local BASE: number = Constants.BASE
+const BASE: number = Constants.BASE
 
 -- ==========
 --> FUNCTIONS
@@ -193,4 +193,4 @@ function Mul.MulLimbs(self: {number}, factor: {number}): {number}
 	return result
 end
 
-return Mul
+return table.freeze(Mul)

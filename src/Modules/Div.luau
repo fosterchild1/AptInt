@@ -15,31 +15,31 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-local GetUpper: ({number}, number) -> {number} = Utils.GetUpper
-local GetLower: ({number}, number) -> {number} = Utils.GetLower
-local GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
-local LeftShift: ({number}, number) -> {number} = Utils.LeftShift
+const GetUpper: ({number}, number) -> {number} = Utils.GetUpper
+const GetLower: ({number}, number) -> {number} = Utils.GetLower
+const GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
+const LeftShift: ({number}, number) -> {number} = Utils.LeftShift
 
-local AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
-local SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
+const AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
+const SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
 
-local max: (number, number) -> number = math.max
-local ceil: (number) -> number = math.ceil
-local log: (number, number) -> number = math.log
-local floor: (number) -> number = math.floor
+const max: (number, number) -> number = math.max
+const ceil: (number) -> number = math.ceil
+const log: (number, number) -> number = math.log
+const floor: (number) -> number = math.floor
 
-local tclone: ({number}) -> {number} = table.clone
-local tcreate: (number, number) -> {number} = table.create
+const tclone: ({number}) -> {number} = table.clone
+const tcreate: (number, number) -> {number} = table.create
 
 -- =================
 --> NORMAL CONSTANTS
 -- =================
 
-local BURNIKEL_THRESHOLD: number = Constants.BURNIKEL_THRESHOLD
-local MIN_BURNIKEL_OFFSET: number = Constants.MIN_BURNIKEL_OFFSET
+const BURNIKEL_THRESHOLD: number = Constants.BURNIKEL_THRESHOLD
+const MIN_BURNIKEL_OFFSET: number = Constants.MIN_BURNIKEL_OFFSET
 
-local BASE: number = Constants.BASE
-local BASE_MASK: number = Constants.BASE_MASK
+const BASE: number = Constants.BASE
+const BASE_MASK: number = Constants.BASE_MASK
 
 local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	--> d0. defs
@@ -278,7 +278,7 @@ function Div.DivLimbs(self: {number}, divisor: {number}): ({number}, {number})
 	end
 	
 	Utils.StripLeadingZeros(quotient)
-	return quotient, remainder :: {number}
+	return quotient, remainder
 end
 
-return Div
+return table.freeze(Div)
