@@ -33,7 +33,7 @@ function Sub.SubByInt(self: {number}, num: number, inPlace: boolean?): {number}
 		break
     end
 	
-	Utils.StripLeadingZeros(self)
+	Utils.StripLeadingZeros(result)
 	return result
 end
 

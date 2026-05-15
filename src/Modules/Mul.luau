@@ -71,7 +71,7 @@ local function MulLimbsBasecase(self: {number}, factor: {number}): {number}
 	for i: number = 1, len do
 		local p: number = carry
 		local iplus: number = i + 1
-
+		
 		for j: number = max(i - factorLen, 1), min(i, selfLen) do
 			p += self[j] * factor[iplus - j]
 		end
