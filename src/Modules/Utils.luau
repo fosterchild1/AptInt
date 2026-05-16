@@ -35,7 +35,16 @@ function Utils.GetSlice(limbs: {number}, startIdx: number, endIdx: number): {num
 	return tmove(limbs, startIdx, endIdx, 1, {})
 end
 
-function Utils.LeftShift(limbs: {number}, amount: number): {number}
+function Utils.LeftShift(limbs: {number}, amount: number, inPlace: boolean?): {number}
+	if inPlace then
+		tmove(limbs, 1, #limbs, amount + 1, limbs)
+		for i: number = 1, amount do
+			limbs[i] = 0
+		end
+		
+		return limbs
+	end
+	
 	-- this is the fastest way to leftshift
 	return tmove(limbs, 1, #limbs, amount+1, tcreate(amount, 0))
 end

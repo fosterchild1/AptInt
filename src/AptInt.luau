@@ -35,17 +35,15 @@ export type ValidConstructor = Type.ValidConstructor
 
 const log10: (number) -> number = math.log10
 const floor: (number) -> number = math.floor
-const ceil: (number) -> number = math.ceil
 const max: (number, number) -> number = math.max
 const abs: (number) -> number = math.abs
 const sign: (number) -> number = math.sign
 
 -- the types here may be off, but native optimizes them more than their actual types
 const tcreate: <V>(number, V) -> {V} = table.create
-const tinsert: <V>({V}, V) -> () = table.insert
-const tconcat: <V>({V}, string?, number?, number?) -> string = table.concat
+const tinsert: ({number}, number) -> () = table.insert
 const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
-const tclone: <V>(V) -> V = table.clone
+const tclone: ({number}) -> {number} = table.clone
 
 const sformat: (string, ...unknown) -> string = string.format
 

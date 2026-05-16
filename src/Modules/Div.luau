@@ -15,13 +15,13 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-const GetUpper: ({number}, number) -> {number} = Utils.GetUpper
-const GetLower: ({number}, number) -> {number} = Utils.GetLower
-const GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
-const LeftShift: ({number}, number) -> {number} = Utils.LeftShift
+const GetUpper = Utils.GetUpper
+const GetLower = Utils.GetLower
+const GetSlice = Utils.GetSlice
+const LeftShift = Utils.LeftShift
 
-const AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
-const SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
+const AddLimbs = Add.AddLimbs
+const SubLimbs = Sub.SubLimbs
 
 const max: (number, number) -> number = math.max
 const ceil: (number) -> number = math.ceil
@@ -57,49 +57,49 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 
 	local quotient: {number} = tcreate(m + 1, 0)
 	
+	--> Pad Un up to its max potential length
+	--> Avoids (un[nPlusJ] or 0). no table.move cause its slower
+	local targetLen: number = m + n + 1
+	for i: number = #Un + 1, targetLen do
+		Un[i] = 0
+	end
+	
 	--> d2. init j
 	local qhat: number, rhat: number = 0, 0
 	for j: number = m, 0, -1 do
 		--> d3. calculate qhat and rhat
 		local nPlusJ: number = n + j + 1
-		local top: number = (Un[nPlusJ] or 0) * BASE + (Un[nPlusJ - 1] or 0)
+		local top: number = Un[nPlusJ] * BASE + Un[nPlusJ - 1]
 		qhat = top // Vnn
 		rhat = top % Vnn
-
-		if qhat == 0 then continue end
-
+		
 		--> first correction
-		if qhat * penultimateVn > rhat * BASE + (Un[nPlusJ - 2] or 0) then
+		if qhat * penultimateVn > rhat * BASE + Un[nPlusJ - 2] then
 			qhat -= 1
 			rhat += Vnn
 
 			--> second correction
-			if rhat < BASE and qhat * penultimateVn > rhat * BASE + (Un[nPlusJ - 2] or 0) then
+			if rhat < BASE and qhat * penultimateVn > rhat * BASE + Un[nPlusJ - 2] then
 				qhat -= 1
 			end
 		end
-
-		--> d4. multiply & subtract
-		local carry: number = 0
-		local borrow: number = 0
-
-		for i: number = 1, n do
-			local p: number = qhat * Vn[i] + carry
-			carry = p // BASE
-			local pDigit: number = p % BASE
-
-			local diff: number = Un[i + j] - pDigit - borrow
-			if diff < 0 then
-				borrow = 1
-				Un[i + j] = diff + BASE
-				continue
-			end
-
-			borrow = 0
-			Un[i + j] = diff
+		
+		if qhat == 0 then 
+			quotient[j + 1] = 0
+			continue 
 		end
+		
+		--> d4. multiply & subtract
+		--> wtf
+		local k: number = 0
+		for i: number = 1, n do
+			local exact: number = Un[i + j] - qhat * Vn[i] + k
+			k = exact // BASE
 
-		local lastSub: number = (Un[nPlusJ] or 0) - carry - borrow
+			Un[i + j] = exact - k * BASE
+		end
+		
+		local lastSub: number = Un[nPlusJ] + k 
 		Un[nPlusJ] = lastSub
 
 		--> d6. add back
@@ -109,8 +109,8 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 		end
 
 		quotient[j + 1] = qhat - 1
-		carry = 0
-
+		
+		local carry: number = 0
 		for i: number = 1, n do
 			local sum: number = Un[i + j] + Vn[i] + carry
 
@@ -165,7 +165,7 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 		R = AddLimbs(AddLimbs(R, a1, true), a2, true) -- [0, a2] + [0, b1]
 
 		-- step 4: D = (b2 << n) - b2
-		D = SubLimbs(LeftShift(b2, n), b2, true)
+		D = SubLimbs(LeftShift(b2, n, true), b2, true)
 	end
 
 	R = AddLimbs(LeftShift(R, n), a3, true) -- paper says a4 but its actually a3
@@ -203,7 +203,7 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
 
 	--> Q=[q1,q2]
-	local Q: {number} = AddLimbs(LeftShift(q1, k), q2, true) -- Q = [q1,q2]
+	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
 	return Q, S
 end
 
@@ -230,8 +230,8 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 
 	local bShifted: {number}, aShifted: {number} = Mul.MulByInt(B, sigma), Mul.MulByInt(A, sigma)
 	if shift > 0 then
-		bShifted = LeftShift(bShifted, shift)
-		aShifted = LeftShift(aShifted, shift)
+		bShifted = LeftShift(bShifted, shift, true)
+		aShifted = LeftShift(aShifted, shift, true)
 	end
 
 	local r: number = #aShifted
@@ -251,11 +251,11 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 		local endIdx: number = (i + 1) * n
 		local ai1: {number} = GetSlice(aShifted, startIdx, endIdx)
 
-		z = AddLimbs(LeftShift(z, n), ai1, true)
+		z = AddLimbs(LeftShift(z, n, true), ai1, true)
 
 		--> 8a. qi, ri
 		local qi: {number}, ri: {number} = DivBZ2n1n(z, bShifted)
-		quotient = AddLimbs(quotient, LeftShift(qi, i*n), true)
+		quotient = AddLimbs(quotient, LeftShift(qi, i*n, true), true)
 
 		z = ri
 	end

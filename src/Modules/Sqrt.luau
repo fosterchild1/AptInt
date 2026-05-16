@@ -16,13 +16,13 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-const GetUpper: ({number}, number) -> {number} = Utils.GetUpper
-const GetLower: ({number}, number) -> {number} = Utils.GetLower
-const GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
-const LeftShift: ({number}, number) -> {number} = Utils.LeftShift
+const GetUpper = Utils.GetUpper
+const GetLower = Utils.GetLower
+const GetSlice = Utils.GetSlice
+const LeftShift = Utils.LeftShift
 
-const AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
-const SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
+const AddLimbs = Add.AddLimbs
+const SubLimbs = Sub.SubLimbs
 
 -- =================
 --> NORMAL CONSTANTS
@@ -76,7 +76,7 @@ local function NewtonHeronSqrt(n: {number}): {number}
 		
 		--> Cmp.Compare isnt faster here because LowerThan only runs once
 		--> Cmp.Equals is way faster
-		if Cmp.Equals(x1, prev1)then
+		if Cmp.Equals(x1, prev1) then
 			return x1
 		end
 		
@@ -110,16 +110,16 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	--local r1 = a3a2:SubtractRaw(s1:MultiplyRaw(s1))
 
 	--> divrem (r1*b + a1, 2*s1)
-	local r1b: {number} = AddLimbs(LeftShift(r1, m), a1, true)
+	local r1b: {number} = AddLimbs(LeftShift(r1, m, true), a1, true)
 	local ds1: {number} = AddLimbs(s1, s1)
 	local q: {number}, u: {number} = Div.DivLimbs(r1b, ds1)
 
 	-- s=s1*b+q
 	-- r=u*b+a0-q^2
-	local s: {number} = AddLimbs(LeftShift(s1, m), q, true)
+	local s: {number} = AddLimbs(LeftShift(s1, m, true), q, true)
 	
 	local qSquared: {number} = Mul.MulLimbs(q, q)
-	local r: {number} = AddLimbs(LeftShift(u, m), a0, true)
+	local r: {number} = AddLimbs(LeftShift(u, m, true), a0, true)
 	local willCorrect: boolean = Cmp.LowerThan(r, qSquared) -- if r will be negative
 	r = SubLimbs(r, qSquared, true)
 	

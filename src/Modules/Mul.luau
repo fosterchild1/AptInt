@@ -14,13 +14,13 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-const GetUpper: ({number}, number) -> {number} = Utils.GetUpper
-const GetLower: ({number}, number) -> {number} = Utils.GetLower
-const GetSlice: ({number}, number, number) -> {number} = Utils.GetSlice
-const LeftShift: ({number}, number) -> {number} = Utils.LeftShift
+const GetUpper = Utils.GetUpper
+const GetLower = Utils.GetLower
+const GetSlice = Utils.GetSlice
+const LeftShift = Utils.LeftShift
 
-const AddLimbs: ({number}, {number}, boolean?) -> {number} = Add.AddLimbs
-const SubLimbs: ({number}, {number}, boolean?) -> {number} = Sub.SubLimbs
+const AddLimbs = Add.AddLimbs
+const SubLimbs = Sub.SubLimbs
 
 const max: (number, number) -> number = math.max
 const min: (number, number) -> number = math.min
@@ -166,19 +166,24 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	v2 = SubLimbs(v2, AddLimbs(vinf, vinf), true)
 	tm1 = SubLimbs(tm1, v2, true)
 	
-	--> combine to get result
-	local result: {number} = LeftShift(vinf, k)
-	result = AddLimbs(result, v2, true); result = LeftShift(result, k)
-	result = AddLimbs(result, v1, true); result = LeftShift(result, k)
-	result = AddLimbs(result, tm1, true); result = LeftShift(result, k)
+	--> combine to get result = (vinf << 4k) + (v2 << 3k) + (v1 << 2k) + (tm1 << k) + v0
+	local result: {number} = LeftShift(vinf, k, true)
+	result = AddLimbs(result, v2, true)
+	
+	result = LeftShift(result, k, true)
+	result = AddLimbs(result, v1, true)
+	
+	result = LeftShift(result, k, true)
+	result = AddLimbs(result, tm1, true)
+	
+	result = LeftShift(result, k, true)
 	result = AddLimbs(result, v0, true)
 
 	return result
 end
 
 function Mul.MulLimbs(self: {number}, factor: {number}): {number}
-	local factorLen: number = #factor
-	local selfLen: number = #self
+	local selfLen: number, factorLen: number = #self, #factor
 	
 	local result: {number}
 	if selfLen < KARATSUBA_THRESHOLD or factorLen < KARATSUBA_THRESHOLD then
