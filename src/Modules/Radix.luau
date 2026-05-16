@@ -10,7 +10,7 @@ local Add = require("./Add")
 local Mul = require("./Mul")
 
 --> FUNCTION CONSTANTS
-const tcreate: <V>(number, V) -> {V} = table.create
+const tcreate: <V>(number, V?) -> {V} = table.create
 const tclone: ({number}) -> {number} = table.clone
 const tinsert: ({number}, number) -> () = table.insert
 const tconcat: ({string}) -> string = table.concat
@@ -53,7 +53,7 @@ function Radix.fromString(str: string): ({number}, number)
 	
 	--> l = [val(s_0), val(s_1) ... val(s_m-1)]
 	local strLen: number = #str
-	local l: {{number}} = tcreate(strLen // RADIX_CHUNK_POW, ZERO)
+	local l: {{number}} = tcreate(strLen // RADIX_CHUNK_POW)
 	local idx: number = 1
 	
 	for i: number = strLen, 1, -RADIX_CHUNK_POW do
@@ -68,7 +68,7 @@ function Radix.fromString(str: string): ({number}, number)
 	
 	while k > 1 do
 		local lIdx: number = 1
-		local new: {{number}} = tcreate(ceil(k/2), ZERO)
+		local new: {{number}} = tcreate(ceil(k/2))
 		
 		for i: number = 1, k - 1, 2 do
 			local bli1: {number} = Mul.MulLimbs(l[i + 1], b)

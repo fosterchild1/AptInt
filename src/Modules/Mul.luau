@@ -26,7 +26,7 @@ const max: (number, number) -> number = math.max
 const min: (number, number) -> number = math.min
 
 const tclone: ({number}) -> {number} = table.clone
-const tcreate: (number, number) -> {number} = table.create
+const tcreate: (number) -> {number} = table.create
 const tinsert: ({number}, number) -> () = table.insert
 
 -- =================
@@ -64,7 +64,7 @@ end
 local function MulLimbsBasecase(self: {number}, factor: {number}): {number}
 	local selfLen: number, factorLen: number = #self, #factor
 	local len: number = selfLen + factorLen
-	local result: {number} = tcreate(len, 0)
+	local result: {number} = tcreate(len)
 	
 	factorLen -= 1
 	local carry: number = 0

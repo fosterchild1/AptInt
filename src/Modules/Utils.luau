@@ -11,6 +11,9 @@ const tcreate: (number, number) -> {number} = table.create
 const tclone: ({number}) -> {number} = table.clone
 const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
 
+--> for some reason, cloning an empty table is faster than passing in an empty table
+const EMPTY_TBL: {number} = {}
+
 const BASE: number = Constants.BASE
 
 function Utils.StripLeadingZeros(array: {number}): ()
@@ -22,17 +25,17 @@ function Utils.StripLeadingZeros(array: {number}): ()
 end
 
 function Utils.GetLower(limbs: {number}, n: number): {number}
-	return tmove(limbs, 1, n, 1, {})
+	return tmove(limbs, 1, n, 1, tclone(EMPTY_TBL))
 end
 
 --> get upper n limbs
 function Utils.GetUpper(limbs: {number}, n: number): {number}
-	return tmove(limbs, n+1, #limbs, 1, {})
+	return tmove(limbs, n+1, #limbs, 1, tclone(EMPTY_TBL))
 end
 
 --> get limbs from startIdx to endIdx
 function Utils.GetSlice(limbs: {number}, startIdx: number, endIdx: number): {number}
-	return tmove(limbs, startIdx, endIdx, 1, {})
+	return tmove(limbs, startIdx, endIdx, 1, tclone(EMPTY_TBL))
 end
 
 function Utils.LeftShift(limbs: {number}, amount: number, inPlace: boolean?): {number}

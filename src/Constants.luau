@@ -1,4 +1,4 @@
-const constants = {
+const constants: {[string]: number} = {
 	BASE_POW = 24,
 	BASE = 2^24,
 	BASE_MASK = 16777215, -- BASE - 1 (=0xffffff)
@@ -15,7 +15,6 @@ const constants = {
 	SQRT_KARATSUBA_THRESHOLD = 32,
 	SQRT_NEWTON_THRESHOLD = 19,
 	
-	TOOM25_THRESHOLD = 60,
 	TOOM3_THRESHOLD = 90,
 	BURNIKEL_THRESHOLD = 280,
 	MIN_BURNIKEL_OFFSET = 40,

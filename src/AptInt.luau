@@ -117,19 +117,16 @@ local function ArgumentToAptInt(num: ValidMetamethodArgument?, errContext: strin
 	local bigint: AptInt
 	
 	if getmetatable(num :: AptInt?) == AptInt then -- is aptint
-		bigint = num :: AptInt
-	else
-		local numType: string = typeof(num)
-
-		assert(
-			typeConstructors[numType] ~= nil,
-			`attempt to perform arithmetic ({errContext}) on AptInt and {numType}`
-		)
-
-		bigint = AptInt.new(num)
+		return num :: AptInt
 	end
-
-	return bigint
+		
+	local numType: string = typeof(num)
+	local constructor = typeConstructors[numType]
+	if not constructor then
+		error(`attempt to perform arithmetic ({errContext}) on AptInt and {numType}`)
+	end
+	
+	return AptInt.new(num)
 end
 
 local function NegateRef(n: AptInt): AptInt
@@ -628,4 +625,4 @@ AptInt.__len = function(n: AptInt): number
 	return floor(log10(limbs[#limbs]) + (#limbs - 1) * RADIX_LEN_CONST) + 1
 end
 
-return AptInt
+return table.freeze(AptInt)

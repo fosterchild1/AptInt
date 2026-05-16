@@ -29,7 +29,7 @@ const log: (number, number) -> number = math.log
 const floor: (number) -> number = math.floor
 
 const tclone: ({number}) -> {number} = table.clone
-const tcreate: (number, number) -> {number} = table.create
+const tcreate: (number, number?) -> {number} = table.create
 
 -- =================
 --> NORMAL CONSTANTS
@@ -55,12 +55,11 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	local Vnn: number = Vn[n]
 	local penultimateVn: number = Vn[n-1] or 0
 
-	local quotient: {number} = tcreate(m + 1, 0)
+	local quotient: {number} = tcreate(m + 1)
 	
-	--> Pad Un up to its max potential length
-	--> Avoids (un[nPlusJ] or 0). no table.move cause its slower
-	local targetLen: number = m + n + 1
-	for i: number = #Un + 1, targetLen do
+	--> pad Un up to its max potential length
+	--> avoids (un[nPlusJ] or 0). no table.move cause its slower
+	for i: number = #Un + 1, m + n + 1 do
 		Un[i] = 0
 	end
 	
