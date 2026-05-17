@@ -7,7 +7,7 @@ const constants: {[string]: number} = {
 	RADIX_CHUNK_SIZE = 10^8,
 	RADIX_CHUNK_POW = 8,
 	MAX_TONUMBER_LEN = 43, -- min{k | BASE^k > 2^1024-1}
-
+	
 	--> algorithm thresholds (size in limbs)
 	MIN_MINADD_OFFSET = 20,
 	KARATSUBA_THRESHOLD = 45,

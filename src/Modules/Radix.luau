@@ -27,8 +27,6 @@ const RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
 const RADIX_CHUNK_POW: number = Constants.RADIX_CHUNK_POW - 1
 const BASE: number = Constants.BASE
 
-const ZERO: {number} = {0} -- reduces GC time
-
 local squareCache: {{number}} = {}
 
 local function SquareBase(b: {number}, depth: number): {number}
@@ -111,12 +109,7 @@ function Radix.ToString(limbs: {number}): string
 		chunks[chunkIdx] = sformat("%08d", carry)
 		chunkIdx -= 1
 
-		while true do 
-			local len: number = #clone 
-			if len == 0 or clone[len] ~= 0 then break end 
-
-			clone[len] = nil 
-		end
+		Utils.StripLeadingZeros(clone)
 	end
 
 	local str: string = tconcat(chunks):gsub("^0+", "") -- removes leading zeros, fast

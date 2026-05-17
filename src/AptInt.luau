@@ -45,8 +45,6 @@ const tinsert: ({number}, number) -> () = table.insert
 const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
 const tclone: ({number}) -> {number} = table.clone
 
-const sformat: (string, ...unknown) -> string = string.format
-
 -- =================
 --> NORMAL CONSTANTS
 -- =================
@@ -61,9 +59,7 @@ const ONE_LIMB: {number} = {1}
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
-	["string"] = function(str: string): ({number}, number)
-		return Radix.fromString(str)
-	end,
+	["string"] = Radix.fromString,
 
 	["number"] = function(num: number): ({number}, number)
 		if num == 0 then
