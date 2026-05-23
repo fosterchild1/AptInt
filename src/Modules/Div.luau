@@ -199,11 +199,16 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 
 	--> get q1,R
 	local q1: {number}, r: {number} = DivBZ3n2n(a1, a2, a3, b1, b2)
+	ReturnPrealloc(a1); ReturnPrealloc(a2); ReturnPrealloc(a3)
+	
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
-
+	ReturnPrealloc(r1); ReturnPrealloc(a2); ReturnPrealloc(a4)
+	
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
+	ReturnPrealloc(q1); ReturnPrealloc(q2)
+	
 	return Q, S
 end
 
