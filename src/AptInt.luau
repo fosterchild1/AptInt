@@ -11,7 +11,7 @@
 --]]
 -- ===============================================================
 
-local AptInt: Type.AptIntAPI = {}
+local AptInt = {}
 AptInt.__index = AptInt
 
 local Constants = require("./Constants")
@@ -26,6 +26,8 @@ local Radix = require("./Modules/Radix")
 local Type = require("./Type")
 
 export type AptInt = Type.AptInt
+export type AptIntMetatable = Type.AptIntMetatable
+export type AptIntAPI = Type.AptIntAPI
 export type ValidMetamethodArgument = Type.ValidMetamethodArgument
 export type ValidConstructor = Type.ValidConstructor
 
@@ -40,7 +42,7 @@ const abs: (number) -> number = math.abs
 const sign: (number) -> number = math.sign
 
 -- the types here may be off, but native optimizes them more than their actual types
-const tcreate: <V>(number, V) -> {V} = table.create
+const tcreate: (number, number) -> {number} = table.create
 const tinsert: ({number}, number) -> () = table.insert
 const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
 const tclone: ({number}) -> {number} = table.clone
@@ -129,14 +131,14 @@ local function NegateRef(n: AptInt): AptInt
 	return setmetatable({
 		limbs = n.limbs,
 		signum = -n.signum,
-	}, AptInt)
+	}, AptInt :: AptInt) :: AptInt
 end
 
 local function FromLimbs(limbs: {number}): AptInt
 	return setmetatable({
 		limbs = limbs,
 		signum = #limbs == 0 and 0 or 1,
-	}, AptInt)
+	}, AptInt :: AptInt) :: AptInt
 end
 
 local function CorrectRemainder(self: AptInt, divisor: AptInt, remainder: AptInt): AptInt
@@ -169,7 +171,7 @@ function AptInt.new(num: ValidConstructor): AptInt
 	return setmetatable({
 		limbs = limbs,
 		signum = signum
-	}, AptInt)
+	}, AptInt :: AptInt) :: AptInt
 end
 
 --> this is ugly
@@ -180,7 +182,7 @@ function AptInt:clone(): AptInt
 	return setmetatable({
 		limbs = tclone(self.limbs),
 		signum = self.signum,
-	}, AptInt)
+	}, AptInt :: AptInt) :: AptInt
 end
 
 -- Returns an AptInt with its sign flipped.
@@ -323,7 +325,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	remainder = CorrectRemainder(self, divisor, remainder)
 	if not sameSign and #remLimbs > 0 then
 		--> floor semantics: mixed-sign non-exact division needs one extra step
-		quotient.limbs = Add.AddLimbs(quotient.limbs, ONE_LIMB, true)
+		quotient.limbs = Add.AddByInt(quotient.limbs, 1, true)
 	end
 
 	quotient.signum = selfSign / divSign
@@ -381,7 +383,6 @@ function AptInt:PowRaw(pow: AptInt): AptInt
 	if #powLimbs == 1 then -- single-limb exponentiation
 		resultLimbs =  Pow.PowByInt(selfLimbs, powLimbs[1])
 	else
-		--> avoid mutating caller-owned exponent limbs during in-place halving
 		resultLimbs = Pow.PowLimbs(selfLimbs, tclone(powLimbs))
 	end
 

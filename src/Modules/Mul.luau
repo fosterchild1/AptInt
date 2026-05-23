@@ -14,6 +14,7 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
+const ReturnPrealloc = Utils.ReturnPrealloc
 const GetUpper = Utils.GetUpper
 const GetLower = Utils.GetLower
 const GetSlice = Utils.GetSlice
@@ -64,7 +65,7 @@ end
 local function MulLimbsBasecase(self: {number}, factor: {number}): {number}
 	local selfLen: number, factorLen: number = #self, #factor
 	local len: number = selfLen + factorLen
-	local result: {number} = tcreate(len)
+	local result: {number} = Utils.GetPrealloc(len)
 	
 	factorLen -= 1
 	local carry: number = 0
@@ -86,7 +87,7 @@ local function MulLimbsBasecase(self: {number}, factor: {number}): {number}
 		carry = 0
 		result[i] = p
 	end
-
+	
 	return result
 end
 
@@ -98,7 +99,12 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 
 	local z0: {number} = Mul.MulLimbs(low1, low2)
 	local z1: {number} = Mul.MulLimbs(AddLimbs(low1, high1, true), AddLimbs(low2, high2, true))
+	
+	ReturnPrealloc(low1)
+	ReturnPrealloc(low2)
 	local z2: {number} = Mul.MulLimbs(high1, high2)
+	ReturnPrealloc(high1)
+	ReturnPrealloc(high2)
 
 	-- result = z0 + ((z1 - z2 - z0) << m2) + (z2 << 2*m2)
 	-- => (z2 << m2 + (z1 - (z2 + z0))) << m2 + z0
@@ -109,6 +115,10 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 	
 	result = LeftShift(result, m2)
 	AddLimbs(result, z0, true)
+	
+	ReturnPrealloc(z0)
+	ReturnPrealloc(z1)
+	ReturnPrealloc(z2)
 	
 	return result
 end
@@ -125,9 +135,7 @@ local function MulToom3(x: {number}, y: {number}): {number}
 
 	local y0: {number}, y1: {number} = GetSlice(y, 1, k), GetSlice(y, k+1, 2*k)
 	local y2: {number} = GetSlice(y, 2*k+1, 2*k+r)
-	--print(#x0.limbs, #x1.limbs, #x2.limbs)
-	--print(#y0.limbs, #y1.limbs, #y2.limbs)
-
+	
 	local v0: {number} = Mul.MulLimbs(x0, y0)
 	local vinf: {number} = Mul.MulLimbs(x2, y2)
 	
@@ -144,13 +152,20 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	
 	da1 = AddLimbs(da1, x1, true)
 	db1 = AddLimbs(db1, y1, true)
+	
+	ReturnPrealloc(x1); ReturnPrealloc(y1)
 
 	local v1: {number} = Mul.MulLimbs(da1, db1)
 	da1 = AddLimbs(da1, x2, true)
 	db1 = AddLimbs(db1, y2, true)
+	
+	ReturnPrealloc(x2); ReturnPrealloc(y2)
 
 	local v2: {number} = SubLimbs(AddLimbs(da1, da1, true), x0, true)
 	v2 = Mul.MulLimbs(v2, SubLimbs(AddLimbs(db1, db1, true), y0, true))
+	
+	ReturnPrealloc(da1); ReturnPrealloc(db1)
+	ReturnPrealloc(x0); ReturnPrealloc(y0)
 	
 	--> all divisions here are single-limb, so they are linear.
 	v2 = (vm1neg and AddLimbs(v2, vm1, true) or SubLimbs(v2, vm1, true))
@@ -178,7 +193,10 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	
 	result = LeftShift(result, k, true)
 	result = AddLimbs(result, v0, true)
-
+	
+	--> dont return vinf, as its the result
+	ReturnPrealloc(v2); ReturnPrealloc(v1); ReturnPrealloc(tm1); ReturnPrealloc(v0)
+	
 	return result
 end
 

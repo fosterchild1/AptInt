@@ -87,9 +87,8 @@ function Radix.fromString(str: string): ({number}, number)
 	return l[1], isNegative and -1 or 1
 end
 
+--> TODO: FastIntegerOutput 1.26
 function Radix.ToString(limbs: {number}): string
-	--> we convert from base 2^k to base 10 in chunks of 8 digits
-	--> 8 = max {k | 2^24 * 10^k < 2^53}
 	local clone: {number} = tclone(limbs)
 
 	local chunkAmount: number = ceil(#clone * log10(BASE) / floor(log10(RADIX_CHUNK_SIZE)))

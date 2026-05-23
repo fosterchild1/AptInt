@@ -38,10 +38,10 @@ function Sub.SubByInt(self: {number}, num: number, inPlace: boolean?): {number}
 end
 
 function Sub.SubLimbs(self: {number}, term: {number}, inPlace: boolean?): {number}
-	local result: {number} = (inPlace and self or tclone(self))
+	local result: {number} = (inPlace and self or Utils.GetPrealloc(#self, self))
 	
 	local diff: number = 0
-	for i: number, selfDigit: number in result do
+	for i: number, selfDigit: number in self do
 		diff += selfDigit - (term[i] or 0)
 		
 		if diff < 0 then

@@ -5,6 +5,7 @@ export type AptIntMetatable = {
 	__sub: (a: ValidMetamethodArgument, b: ValidMetamethodArgument) -> AptInt,
 	__mul: (a: ValidMetamethodArgument, b: ValidMetamethodArgument) -> AptInt,
 	__div: (a: ValidMetamethodArgument, b: ValidMetamethodArgument) -> AptInt,
+	__idiv: (a: ValidMetamethodArgument, b: ValidMetamethodArgument) -> AptInt,
 	__mod: (a: ValidMetamethodArgument, b: ValidMetamethodArgument) -> AptInt,
 	__pow: (a: ValidMetamethodArgument, b: ValidMetamethodArgument) -> AptInt,
 	__eq: (a: ValidMetamethodArgument, b: ValidMetamethodArgument) -> boolean,

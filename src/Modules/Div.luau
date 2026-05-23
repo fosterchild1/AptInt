@@ -15,6 +15,7 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
+const ReturnPrealloc = Utils.ReturnPrealloc
 const GetUpper = Utils.GetUpper
 const GetLower = Utils.GetLower
 const GetSlice = Utils.GetSlice
@@ -55,7 +56,7 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	local Vnn: number = Vn[n]
 	local penultimateVn: number = Vn[n-1] or 0
 
-	local quotient: {number} = tcreate(m + 1)
+	local quotient: {number} = Utils.GetPrealloc(m + 1)
 	
 	--> pad Un up to its max potential length
 	--> avoids (un[nPlusJ] or 0). no table.move cause its slower
