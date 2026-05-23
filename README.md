@@ -1,7 +1,7 @@
 <p align="center"><img src="https://github.com/fosterchild1/AptInt/blob/main/resources/text.png" width="659" height="288"></p>
 
 ## <p align="center">Lightweight, highest performance BigInteger library for Luau</p>
-### <p align="center">AptInt is the fastest luau implementation of BigInteger, designed for working with numbers over 10,000 digits long.</p>
+### <p align="center">AptInt is THE fastest luau implementation of BigInteger, designed for working with numbers over 10,000 digits long.</p>
 
 # Overview
 This library provides [arbitrary precision arithmetic](https://en.wikipedia.org/wiki/Arbitrary-precision_arithmetic) capabilities implemented in just Luau. It uses a 2^24 word size to store numbers and can easily be configured to your liking.
@@ -34,10 +34,10 @@ For division, we do a 2NxN division. (2N = digit count)
 | ---  | --- | --- | --- | --- | --- |
 | 1 | 1μs | 1μs | 1μs | 2μs | 29μs |
 | 50 | 1μs | 3μs | 4μs | 11μs | 6  1μs |
-| 100 | 2μs | 7μs | 6μs | 24μs | 157μs |
+| 100 | 2μs | 7μs | 6μs | 17μs | 157μs |
 | 500 | 5μs | 9μs | 56μs | 36μs | 196μs |
 | 1,000 | 7μs | 13μs | 177μs | 98μs | 468μs |
 | 5,000 | 23μs | 30μs | 2ms | 1ms | 1ms |
-| 10,000 | 57μs | 74μs | 5ms | 4ms | 3ms |
-| 50,000 | 209μs | 243μs | 67ms | 60ms | 47ms |
-| 100,000 | 389μs | 396μs | 180ms | 153ms | 132ms |
+| 10,000 | 57μs | 74μs | 5ms | 3ms | 2ms |
+| 50,000 | 209μs | 243μs | 67ms | 38ms | 21ms |
+| 100,000 | 389μs | 396μs | 180ms | 88ms | 49ms |
