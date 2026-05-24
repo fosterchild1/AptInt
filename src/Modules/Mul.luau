@@ -109,8 +109,8 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 	-- result = z0 + ((z1 - z2 - z0) << m2) + (z2 << 2*m2)
 	-- => (z2 << m2 + (z1 - (z2 + z0))) << m2 + z0
 	local result: {number} = LeftShift(z2, m2)
-	
 	SubLimbs(z1, AddLimbs(z2, z0, true), true)
+	
 	result = AddLimbs(result, z1, true)
 	ReturnAlloc(z2)
 	ReturnAlloc(z1)

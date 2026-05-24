@@ -17,31 +17,31 @@ const tmove: ({number}, number, number, number, {number}) -> {number} = table.mo
 const tclear: ({{number}}) -> () = table.clear
 
 const BASE: number = Constants.BASE
-const PREALLOC_POOL_STEP: number = Constants.PREALLOC_POOL_STEP
+const ALLOC_MIN_SIZE: number = Constants.ALLOC_MIN_SIZE
 const ZEROS: {number} = tcreate(240_000, 0)
 
 --> a better idea would be to sort these into buckets of size PREALLOC_POOL_STEP
 --> ... i tried that, and it somehow had worse performance than this approach. way worse.
 --> why are you like this, luau?
-local pools: {{number}} = {}
+local tblPool: {{number}} = {}
 local currPoolLen: number = 0
 local function CleanPool()
-	table.clear(pools)
+	table.clear(tblPool)
 end
 
 function Utils.GetAlloc(size: number, fallback: {number}?): {number}
 	--> sometimes size can be negative from getlower/upper/slice
 	size = max(size, 0)
-	if size < PREALLOC_POOL_STEP then return tcreate(size, 0) end
+	if size < ALLOC_MIN_SIZE then return tcreate(size, 0) end
 	
 	if currPoolLen == 0 then
 		if fallback then return tclone(fallback) end
 		return tcreate(size, 0)
 	end
 
-	local extTbl: {number} = pools[currPoolLen]
+	local extTbl: {number} = tblPool[currPoolLen]
 	local tblLen: number = #extTbl
-	pools[currPoolLen] = nil
+	tblPool[currPoolLen] = nil
 	currPoolLen -= 1
 
 	--> correct its size
@@ -61,9 +61,9 @@ function Utils.GetAlloc(size: number, fallback: {number}?): {number}
 end
 
 function Utils.ReturnAlloc(alloc: {number}): ()
-	if #alloc < PREALLOC_POOL_STEP then return end
+	if #alloc < ALLOC_MIN_SIZE then return end
 	currPoolLen += 1
-	tinsert(pools, alloc)
+	tinsert(tblPool, alloc)
 end
 
 function Utils.StripLeadingZeros(array: {number}): ()

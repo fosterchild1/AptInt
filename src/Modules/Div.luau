@@ -57,13 +57,13 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	local penultimateVn: number = Vn[n-1] or 0
 
 	local quotient: {number} = Utils.GetAlloc(m + 1)
-	
+
 	--> pad Un up to its max potential length
 	--> avoids (un[nPlusJ] or 0). no table.move cause its slower
 	for i: number = #Un + 1, m + n + 1 do
 		Un[i] = 0
 	end
-	
+
 	--> d2. init j
 	local qhat: number, rhat: number = 0, 0
 	for j: number = m, 0, -1 do
@@ -72,7 +72,7 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 		local top: number = Un[nPlusJ] * BASE + Un[nPlusJ - 1]
 		qhat = top // Vnn
 		rhat = top % Vnn
-		
+
 		--> first correction
 		if qhat * penultimateVn > rhat * BASE + Un[nPlusJ - 2] then
 			qhat -= 1
@@ -83,12 +83,12 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 				qhat -= 1
 			end
 		end
-		
+
 		if qhat == 0 then 
 			quotient[j + 1] = 0
 			continue 
 		end
-		
+
 		--> d4. multiply & subtract
 		--> wtf
 		local k: number = 0
@@ -98,7 +98,7 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 
 			Un[i + j] = exact - k * BASE
 		end
-		
+
 		local lastSub: number = Un[nPlusJ] + k 
 		Un[nPlusJ] = lastSub
 
@@ -109,7 +109,7 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 		end
 
 		quotient[j + 1] = qhat - 1
-		
+
 		local carry: number = 0
 		for i: number = 1, n do
 			local sum: number = Un[i + j] + Vn[i] + carry
@@ -138,14 +138,14 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	end
 
 	Utils.StripLeadingZeros(Un)
-	
+
 	return quotient, Un
 end
 
 --> BURNIKEL ZIEGLER
 local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number}, b2: {number}): 
 	({number}, {number})
-	
+
 	--> Algorithm 2 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
 	local n: number = #b2
 
@@ -157,16 +157,18 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 		q, R = DivBZ2n1n(a1a2, b1)
 
 		-- step 4: d = q * b2
+		ReturnAlloc(a1a2) -- D takes a1a2's place
 		D = Mul.MulLimbs(q, b2)
 	else -- step 3b: a1 >= b1
 		q = tcreate(n, BASE_MASK) -- q = beta^n-1
-		
+
 		R = LeftShift(SubLimbs(a1, b1, true), n) -- [a1, 0] - [b1, 0]
-		R = AddLimbs(AddLimbs(R, a1, true), a2, true) -- [0, a2] + [0, b1]
+		R = AddLimbs(AddLimbs(R, b1, true), a2, true) -- [0, a2] + [0, b1]
 
 		-- step 4: D = (b2 << n) - b2
 		D = SubLimbs(LeftShift(b2, n, true), b2, true)
 	end
+
 
 	R = AddLimbs(LeftShift(R, n), a3, true) -- paper says a4 but its actually a3
 
@@ -183,6 +185,8 @@ end
 function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 	--> this function has to be global because of its use in DivBZ3n2n.
 	--> Algorithm 1 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
+
+	--> NOT REUSED: a4, b1, b2
 	local bLen: number = #B
 
 	--> basecase
@@ -194,20 +198,23 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 
 	--> get a1,a2,a3,a4 and b1,b2, where a=[a1,a2,a3,a4] and b=[b1,b2]
 	local a1: {number}, a2: {number} = GetSlice(A, 3*k+1, 4*k), GetSlice(A, 2*k+1, 3*k)
-	local a3: {number}, a4: {number} = GetSlice(A, k+1, 2*k), GetLower(A, k)
+	local a3: {number} = GetSlice(A, k+1, 2*k)
 	local b1: {number}, b2: {number} = GetUpper(B, k), GetLower(B, k)
 
 	--> get q1,R
 	local q1: {number}, r: {number} = DivBZ3n2n(a1, a2, a3, b1, b2)
-	--ReturnAlloc(a1); ReturnAlloc(a2); ReturnAlloc(a3)
-	
+
+	--> TODO: we can reuse a4 here, from inside divbz3n2n.
+	--> find out what n-sized value we can returnalloc inside that func
+
+	ReturnAlloc(a2); ReturnAlloc(a3) -- r1 & r2 takes a2 & a3's place
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
+	local a4: {number} = GetLower(A, k)
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
-	ReturnAlloc(r1); ReturnAlloc(a2); ReturnAlloc(a4)
-	
+
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
-	ReturnAlloc(q1); ReturnAlloc(q2)
+	ReturnAlloc(q1); ReturnAlloc(q2) -- somehow speeds stuff up
 	
 	return Q, S
 end
@@ -263,6 +270,7 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 		quotient = AddLimbs(quotient, LeftShift(qi, i*n, true), true)
 
 		z = ri
+		ReturnAlloc(ai1) -- ai1 takes ai1's place
 	end
 
 	Utils.DivByInt(z, sigma, true)
@@ -274,14 +282,14 @@ Div.DivByInt = Utils.DivByInt
 
 function Div.DivLimbs(self: {number}, divisor: {number}): ({number}, {number})
 	local diff: number = #self - #divisor
-	
+
 	local quotient: {number}, remainder: {number}
 	if #self > BURNIKEL_THRESHOLD and #divisor > BURNIKEL_THRESHOLD and diff > MIN_BURNIKEL_OFFSET then
 		quotient, remainder = DivBurnikelZiegler(self, divisor)
 	else
 		quotient, remainder = DivKnuths(self, divisor)
 	end
-	
+
 	Utils.StripLeadingZeros(quotient)
 	return quotient, remainder
 end

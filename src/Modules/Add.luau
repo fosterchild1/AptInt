@@ -16,46 +16,6 @@ const tmove: ({number}, number, number, number, {number}) -> {number} = table.mo
 const BASE: number = Constants.BASE
 const MIN_MINADD_OFFSET: number = Constants.MIN_MINADD_OFFSET
 
-local function MinAdd(term: {number}, result: {number}): {number}
-	--> since result has self's limbs, we can just iterate over y
-	--> carry is 99.99% of times very small, so the while loop doesnt run much
-	--> overall faster
-
-	--> from right to left
-	local sum: number = 0
-	for i: number, yLimb: number in term do
-		sum += result[i] + yLimb
-
-		if sum >= BASE then
-			result[i] = sum - BASE
-			sum = 1
-			continue
-		end
-
-		result[i] = sum
-		sum = 0
-	end
-
-	if sum == 0 then return result end
-
-	--> carry loop
-	local resultIndex: number = #term + 1
-	while true do
-		sum = (result[resultIndex] or 0) + 1
-
-		if sum >= BASE then
-			result[resultIndex] = sum - BASE
-			resultIndex += 1
-			continue
-		end
-
-		result[resultIndex] = sum
-		break
-	end
-
-	return result
-end
-
 function Add.AddByInt(self: {number}, sum: number, inPlace: boolean?): {number}
 	local result: {number} = (inPlace and self or tclone(self))
 

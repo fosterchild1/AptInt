@@ -111,7 +111,7 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	local a3a2: {number} = GetUpper(n, m2) -- m2+1
 	local s1: {number}, r1: {number} = KaratsubaSqrt(a3a2)
 
-	local a1: {number} = GetSlice(n, m+1, m2) -- takes s2 or qs place, check below
+	local a1: {number} = GetSlice(n, m+1, m2) -- takes s2 or q's place, check below
 
 	--> q,u = divrem (r1*b + a1, 2*s1)
 	local r1b: {number} = AddLimbs(LeftShift(r1, m, true), a1, true)
@@ -125,12 +125,12 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 
 	-- s=s1*b+q
 	local s: {number} = AddLimbs(LeftShift(s1, m, true), q, true)
-
-	ReturnAlloc(a3a2) -- return a3a2, qsquared will take its place
 	-- r=u*b+a0-q^2
+	local r: {number} = AddLimbs(LeftShift(u, m, true), a0, true)
+
+	ReturnAlloc(a3a2) -- return a3a2, qsquared will take its place (only on basecase mul)
 	local qSquared: {number} = Mul.MulLimbs(q, q)
 
-	local r: {number} = AddLimbs(LeftShift(u, m, true), a0, true)
 
 	local willCorrect: boolean = Cmp.LowerThan(r, qSquared) -- if r will be negative
 	r = SubLimbs(r, qSquared, true)
