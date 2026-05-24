@@ -16,6 +16,7 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
+const ReturnAlloc = Utils.ReturnAlloc
 const GetUpper = Utils.GetUpper
 const GetLower = Utils.GetLower
 const GetSlice = Utils.GetSlice
@@ -95,33 +96,44 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	--> needed here too
 	local limbLen: number = #n
 	if limbLen < SQRT_KARATSUBA_THRESHOLD then
-		local sq: {number} = Sqrt.ISqrtLimbs(n)
-		return sq, SubLimbs(n, Mul.MulLimbs(sq, sq))
+		local isq: {number} = Sqrt.ISqrtLimbs(n)
+		local isqSq: {number} = Mul.MulLimbs(isq, isq)
+		local remainder: {number} = SubLimbs(n, isqSq)
+		
+		ReturnAlloc(isqSq)
+		return isq, remainder
 	end
-
 	--> calculate a3, a1 and a0
 	local m: number = limbLen//4
 	local m2: number = m*2
 
 	local a3a2: {number} = GetUpper(n, m2) -- m2+1
-	local a1: {number}, a0: {number} = GetSlice(n, m+1, m2), GetSlice(n, 1, m)
-
 	local s1: {number}, r1: {number} = KaratsubaSqrt(a3a2)
-	--local r1 = a3a2:SubtractRaw(s1:MultiplyRaw(s1))
-
+	
+	local a1: {number} = GetSlice(n, m+1, m2)
+	
 	--> divrem (r1*b + a1, 2*s1)
 	local r1b: {number} = AddLimbs(LeftShift(r1, m, true), a1, true)
+	ReturnAlloc(a1) -- free up a1, then a0 takes its place
+	local a0: {number} = GetLower(n, m)
+	
 	local ds1: {number} = AddLimbs(s1, s1)
 	local q: {number}, u: {number} = Div.DivLimbs(r1b, ds1)
+	ReturnAlloc(r1b); ReturnAlloc(ds1)
 
 	-- s=s1*b+q
 	-- r=u*b+a0-q^2
 	local s: {number} = AddLimbs(LeftShift(s1, m, true), q, true)
 	
+	ReturnAlloc(a3a2) -- return a3a2, qsquared will take its place
 	local qSquared: {number} = Mul.MulLimbs(q, q)
+	
 	local r: {number} = AddLimbs(LeftShift(u, m, true), a0, true)
+	ReturnAlloc(a0); ReturnAlloc(q)
+	
 	local willCorrect: boolean = Cmp.LowerThan(r, qSquared) -- if r will be negative
 	r = SubLimbs(r, qSquared, true)
+	ReturnAlloc(qSquared)
 	
 	--> correct
 	if willCorrect then

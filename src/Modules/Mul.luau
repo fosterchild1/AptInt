@@ -115,7 +115,7 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 	ReturnAlloc(z2)
 	ReturnAlloc(z1)
 	
-	result = LeftShift(result, m2)
+	LeftShift(result, m2, true)
 	AddLimbs(result, z0, true)
 	ReturnAlloc(z0)
 	
@@ -170,6 +170,7 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	Utils.DivByInt(v2, 3, true)
 	
 	local tm1: {number} = vm1neg and AddLimbs(v1, vm1) or SubLimbs(v1, vm1)
+	ReturnAlloc(vm1)
 	Utils.DivByInt(tm1, 2, true)
 	
 	v1 = SubLimbs(v1, v0, true)
@@ -184,15 +185,15 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	result = AddLimbs(result, v2, true)
 	ReturnAlloc(v2)
 	
-	result = LeftShift(result, k, true)
+	LeftShift(result, k, true)
 	result = AddLimbs(result, v1, true)
 	ReturnAlloc(v1)
 	
-	result = LeftShift(result, k, true)
+	LeftShift(result, k, true)
 	result = AddLimbs(result, tm1, true)
 	ReturnAlloc(tm1)
 	
-	result = LeftShift(result, k, true)
+	LeftShift(result, k, true)
 	result = AddLimbs(result, v0, true)
 	ReturnAlloc(v0)
 	

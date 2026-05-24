@@ -8,7 +8,7 @@ const constants: {[string]: number} = {
 	RADIX_CHUNK_POW = 8,
 	MAX_TONUMBER_LEN = 43, -- min{k | BASE^k > 2^1024-1}
 	
-	PREALLOC_POOL_STEP = 16, -- in what increments of table length to sort reused tables into
+	PREALLOC_POOL_STEP = 40, -- in what increments of table length to sort reused tables into
 	
 	--> algorithm thresholds (size in limbs)
 	MIN_MINADD_OFFSET = 20,

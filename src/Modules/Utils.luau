@@ -18,38 +18,35 @@ const tclear: ({{number}}) -> () = table.clear
 
 const BASE: number = Constants.BASE
 const PREALLOC_POOL_STEP: number = Constants.PREALLOC_POOL_STEP
+const ZEROS: {number} = tcreate(240_000, 0)
 
 --> a better idea would be to sort these into buckets of size PREALLOC_POOL_STEP
 --> ... i tried that, and it somehow had worse performance than this approach. way worse.
 --> why are you like this, luau?
 local pools: {{number}} = {}
+local currPoolLen: number = 0
 local function CleanPool()
 	table.clear(pools)
 end
 
 function Utils.GetAlloc(size: number, fallback: {number}?): {number}
 	--> sometimes size can be negative from getlower/upper/slice
-	if size < PREALLOC_POOL_STEP then return tcreate(max(size, 0), 0) end
+	size = max(size, 0)
+	if size < PREALLOC_POOL_STEP then return tcreate(size, 0) end
 	
-	local poolLen: number = #pools
-	if poolLen == 0 then
+	if currPoolLen == 0 then
 		if fallback then return tclone(fallback) end
 		return tcreate(size, 0)
 	end
 
-	local extTbl: {number} = pools[poolLen]
+	local extTbl: {number} = pools[currPoolLen]
 	local tblLen: number = #extTbl
-	
-	if abs(tblLen - size) > 2000 then
-		if fallback then return tclone(fallback) end
-		return tcreate(size, 0)
-	end
+	pools[currPoolLen] = nil
+	currPoolLen -= 1
 
-	pools[poolLen] = nil
-		
 	--> correct its size
 	if tblLen > size then
-		for j: number = tblLen, size + 1, -1 do
+		for j: number = size + 1, tblLen do
 			extTbl[j] = nil
 		end
 		return extTbl
@@ -65,6 +62,7 @@ end
 
 function Utils.ReturnAlloc(alloc: {number}): ()
 	if #alloc < PREALLOC_POOL_STEP then return end
+	currPoolLen += 1
 	tinsert(pools, alloc)
 end
 
@@ -94,21 +92,20 @@ function Utils.GetSlice(limbs: {number}, startIdx: number, endIdx: number): {num
 end
 
 function Utils.LeftShift(limbs: {number}, amount: number, inPlace: boolean?): {number}
+	local limbLen: number = #limbs
+	if limbLen == 0 then return limbs end
+
 	if inPlace then
-		tmove(limbs, 1, #limbs, amount + 1, limbs)
+		tmove(limbs, 1, limbLen, amount + 1, limbs)
 		for i: number = 1, amount do
 			limbs[i] = 0
 		end
-		
 		return limbs
 	end
-	
-	-- this is the fastest way to leftshift
-	local tbl: {number} = Utils.GetAlloc(amount)
-	for i: number = 1, #tbl do
-		tbl[i]=0
-	end
-	return  tmove(limbs, 1, #limbs, amount+1, tbl)
+
+	local allocTbl: {number} = Utils.GetAlloc(limbLen + amount)
+	tmove(ZEROS, 1, amount, 1, allocTbl)
+	return tmove(limbs, 1, limbLen, amount + 1, allocTbl)
 end
 
 function Utils.DivByInt(limbs: {number}, div: number, inPlace: boolean?): ({number}, {number})
@@ -131,12 +128,11 @@ function Utils.DivByInt(limbs: {number}, div: number, inPlace: boolean?): ({numb
 	return quotient, {carry}
 end
 
---> UGLY: rebuild pools every once in a while to avoid super high memory
+--> UGLY: rebuild pool every once in a while to avoid super high memory
 task.spawn(function()
 	while task.wait(60) do
 		CleanPool()
 	end
 end)
-CleanPool()
 
 return Utils

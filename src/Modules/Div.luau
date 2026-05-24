@@ -194,7 +194,7 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 
 	--> get a1,a2,a3,a4 and b1,b2, where a=[a1,a2,a3,a4] and b=[b1,b2]
 	local a1: {number}, a2: {number} = GetSlice(A, 3*k+1, 4*k), GetSlice(A, 2*k+1, 3*k)
-	local a3: {number}, a4: {number} = GetSlice(A, k+1, 2*k), GetSlice(A, 1, k)
+	local a3: {number}, a4: {number} = GetSlice(A, k+1, 2*k), GetLower(A, k)
 	local b1: {number}, b2: {number} = GetUpper(B, k), GetLower(B, k)
 
 	--> get q1,R
@@ -203,7 +203,7 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 	
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
-	--ReturnAlloc(r1); ReturnAlloc(a2); ReturnAlloc(a4)
+	ReturnAlloc(r1); ReturnAlloc(a2); ReturnAlloc(a4)
 	
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
