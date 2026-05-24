@@ -15,7 +15,7 @@ local Cmp = require("./Cmp")
 --> OPTIMIAZTION FUNCTION CONSTANTS
 -- ================================
 
-const ReturnPrealloc = Utils.ReturnPrealloc
+const ReturnAlloc = Utils.ReturnAlloc
 const GetUpper = Utils.GetUpper
 const GetLower = Utils.GetLower
 const GetSlice = Utils.GetSlice
@@ -56,7 +56,7 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	local Vnn: number = Vn[n]
 	local penultimateVn: number = Vn[n-1] or 0
 
-	local quotient: {number} = Utils.GetPrealloc(m + 1)
+	local quotient: {number} = Utils.GetAlloc(m + 1)
 	
 	--> pad Un up to its max potential length
 	--> avoids (un[nPlusJ] or 0). no table.move cause its slower
@@ -172,7 +172,7 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 
 	--> q too large by atleast 1
 	while Cmp.LowerThan(R, D) do
-		SubLimbs(q, {1}, true)
+		Sub.SubByInt(q, 1, true)
 		AddLimbs(R, B, true)
 	end
 
@@ -199,15 +199,15 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 
 	--> get q1,R
 	local q1: {number}, r: {number} = DivBZ3n2n(a1, a2, a3, b1, b2)
-	ReturnPrealloc(a1); ReturnPrealloc(a2); ReturnPrealloc(a3)
+	--ReturnAlloc(a1); ReturnAlloc(a2); ReturnAlloc(a3)
 	
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
-	ReturnPrealloc(r1); ReturnPrealloc(a2); ReturnPrealloc(a4)
+	--ReturnAlloc(r1); ReturnAlloc(a2); ReturnAlloc(a4)
 	
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
-	ReturnPrealloc(q1); ReturnPrealloc(q2)
+	ReturnAlloc(q1); ReturnAlloc(q2)
 	
 	return Q, S
 end

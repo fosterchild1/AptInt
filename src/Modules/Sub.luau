@@ -38,7 +38,7 @@ function Sub.SubByInt(self: {number}, num: number, inPlace: boolean?): {number}
 end
 
 function Sub.SubLimbs(self: {number}, term: {number}, inPlace: boolean?): {number}
-	local result: {number} = (inPlace and self or Utils.GetPrealloc(#self, self))
+	local result: {number} = (inPlace and self or Utils.GetAlloc(#self, self))
 	
 	local diff: number = 0
 	for i: number, selfDigit: number in self do
