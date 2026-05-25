@@ -131,7 +131,6 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	ReturnAlloc(a3a2) -- return a3a2, qsquared will take its place (only on basecase mul)
 	local qSquared: {number} = Mul.MulLimbs(q, q)
 
-
 	local willCorrect: boolean = Cmp.LowerThan(r, qSquared) -- if r will be negative
 	r = SubLimbs(r, qSquared, true)
 	ReturnAlloc(q)

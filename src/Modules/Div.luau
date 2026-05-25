@@ -149,8 +149,6 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 	--> Algorithm 2 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
 	local n: number = #b2
 
-	local B: {number} = AddLimbs(LeftShift(b1, n), b2, true) -- [b1, b2]
-
 	local q: {number}, R: {number}, D: {number}
 	if Cmp.LowerThan(a1, b1) then -- step 3a: a1 < b1
 		local a1a2: {number} = AddLimbs(LeftShift(a1, n), a2, true)
@@ -169,15 +167,18 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 		D = SubLimbs(LeftShift(b2, n, true), b2, true)
 	end
 
-
-	R = AddLimbs(LeftShift(R, n), a3, true) -- paper says a4 but its actually a3
-
-	--> q too large by atleast 1
-	while Cmp.LowerThan(R, D) do
-		Sub.SubByInt(q, 1, true)
-		AddLimbs(R, B, true)
+	AddLimbs(LeftShift(R, n, true), a3, true) -- paper says a4 but its actually a3
+	
+	--> only do B = if R<D. comparison runs twice but comparison never was slow
+	if Cmp.LowerThan(R, D) then
+		local B: {number} = AddLimbs(LeftShift(b1, n), b2, true) -- [b1, b2]
+		
+		while Cmp.LowerThan(R, D) do
+			Sub.SubByInt(q, 1, true)
+			AddLimbs(R, B, true)
+		end
 	end
-
+	
 	SubLimbs(R, D, true)
 	return q, R
 end
@@ -203,10 +204,7 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 
 	--> get q1,R
 	local q1: {number}, r: {number} = DivBZ3n2n(a1, a2, a3, b1, b2)
-
-	--> TODO: we can reuse a4 here, from inside divbz3n2n.
-	--> find out what n-sized value we can returnalloc inside that func
-
+	
 	ReturnAlloc(a2); ReturnAlloc(a3) -- r1 & r2 takes a2 & a3's place
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
 	local a4: {number} = GetLower(A, k)
@@ -214,7 +212,7 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
-	ReturnAlloc(q1); ReturnAlloc(q2) -- somehow speeds stuff up
+	ReturnAlloc(q1) -- somehow speeds stuff up, man...
 	
 	return Q, S
 end

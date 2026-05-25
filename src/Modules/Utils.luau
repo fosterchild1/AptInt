@@ -19,6 +19,7 @@ const tclear: ({{number}}) -> () = table.clear
 const BASE: number = Constants.BASE
 const ALLOC_MIN_SIZE: number = Constants.ALLOC_MIN_SIZE
 const ZEROS: {number} = tcreate(240_000, 0)
+const EMPTY = {}
 
 --> a better idea would be to sort these into buckets of size PREALLOC_POOL_STEP
 --> ... i tried that, and it somehow had worse performance than this approach. way worse.
@@ -60,9 +61,16 @@ function Utils.GetAlloc(size: number, fallback: {number}?): {number}
 	return extTbl
 end
 
-function Utils.ReturnAlloc(alloc: {number}): ()
-	if #alloc < ALLOC_MIN_SIZE then return end
+function Utils.ReturnAlloc(alloc: {number}, resize: number?): ()
+	local size: number = #alloc
+	if size < ALLOC_MIN_SIZE then return end
 	currPoolLen += 1
+	
+	if resize then
+		local amount: number = resize - size
+		tmove(EMPTY, 1, amount, amount + 1, alloc)
+	end
+	
 	tinsert(tblPool, alloc)
 end
 
