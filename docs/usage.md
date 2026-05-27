@@ -6,8 +6,8 @@ You can construct an AptInt in four ways:
 
 ```luau
 AptInt.new() -- equal to AptInt.new({0})
-AptInt.new("123") -- O(n)
-AptInt.new(123) -- O(n)
+AptInt.new("123") -- O(M(n) log n)
+AptInt.new(123) -- O(1)
 AptInt.new({123}) -- O(1)
 ```
 
@@ -32,7 +32,7 @@ SubtractRaw: (term: AptInt, term: AptInt, inPlace: AptInt) -> Aptint -- O(n), in
 MultiplyRaw: (factor: AptInt, factor: AptInt) -> Aptint -- M(n)
 DivideRaw: (dividend: AptInt, divisor: AptInt) -> (AptInt, AptInt) -- D(n)
 ModRaw: (n: AptInt, div: AptInt) -> Aptint -- D(n)
-PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- M(n) * O(log n)
+PowRaw: (n: AptInt, pow: AptInt) -> AptInt -- O(M(n) log n)
 sqrt: (n: AptInt) -> AptInt -- O(n^2) for Newton-Heron, fast O(n log n) for Karatsuba square root
 ```
 
@@ -48,14 +48,14 @@ LowerOrEqualToRaw: (x: AptInt, y: AptInt) -> boolean -- O(n)
 LeftShift: (n: AptInt, amount: number) -> AptInt -- O(n)
 RightShift: (n: AptInt, amount: number) -> AptInt -- O(n)
 Abs: (n: AptInt, inPlace: boolean?) -> AptInt -- O(1) for inPlace, O(n) otherwise
-Min: (...: AptInt) -> AptInt -- O(max(...))
-Max: (...: AptInt) -> AptInt -- O(max(...))
+Min: (...: AptInt) -> AptInt -- O(n)
+Max: (...: AptInt) -> AptInt -- O(n)
 ```
 
 ### Conversion
 ```luau
 ToString: (n: AptInt) -> string -- O(n^2)
-ToNumber: (n: AptInt) -> number -- O(n^2)
+ToNumber: (n: AptInt) -> number -- O(1)
 ```
 
 # Syntax
@@ -108,8 +108,6 @@ print(x % z < x:ModRaw(z), y % x > y:ModRaw(x)) -- false, false
 --> exponentiation
 print(x ^ w) -- 32514036223443818658666570820773897187131153144315156149796159889594110235088130815486702658418689303967322551776061233110733856666188520606046203541487526744978697268624908930891991692677194433039757018952689791349889558362298065381765020144225256562503576779807721417275236547177622338980771070805187332601074109411066979379416928975392909324458659310591619674434891034337428433851093726569936220342131949259425917664234626052601806328228079886484005517894641978810310456199692440073854572204955477598194457596242817389098299760810308800031756375052331751488986937507305703604948452437651836947695048811539858617086040404708980301226604335294410391579875203623659207743316274004917715589113056535037465902146148814089582712158693559047903440100000000000000000000000000000000000000000000000000000000
 print(x ^ w ~= x:PowRaw(w)) -- false
-
-print(aptint.new(0) == aptint.zero) -- true
 
 print((-x):Abs()) -- 189234913413490
 print(x:Max(y, z, w)) -- 9012349012343490119034
