@@ -64,7 +64,7 @@ end
 local function MulLimbsBasecase(self: {number}, factor: {number}): {number}
 	local selfLen: number, factorLen: number = #self, #factor
 	local len: number = selfLen + factorLen
-	local result: {number} = table.create(len, 0)
+	local result: {number} = Utils.GetAlloc(len)
 	
 	factorLen -= 1
 	local carry: number = 0
@@ -110,13 +110,10 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 	local result: {number} = LeftShift(z2, m2)
 	SubLimbs(z1, AddLimbs(z2, z0, true), true)
 	
-	result = AddLimbs(result, z1, true)
-	ReturnAlloc(z2)
-	ReturnAlloc(z1)
+	AddLimbs(result, z1, true)
 	
 	LeftShift(result, m2, true)
 	AddLimbs(result, z0, true)
-	ReturnAlloc(z0)
 	
 	return result
 end

@@ -40,7 +40,7 @@ local function SquareBase(b: {number}, depth: number): {number}
 	return sq
 end
 
-local function NaiveToString(limbs: {number}): string
+function Radix.NaiveToString(limbs: {number}): string
 	if #limbs == 0 then
 		return  "0"
 	end
@@ -125,9 +125,7 @@ function Radix.ToString(limbs: {number}): string
 	--> https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf
 	local len: number = #limbs
 	if len <= 3 then
-		local s: string = NaiveToString(limbs)
-		
-		return NaiveToString(limbs)
+		return Radix.NaiveToString(limbs)
 	end
 	
 	--> get digits in base 10, same as .__tostring

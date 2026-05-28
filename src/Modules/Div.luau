@@ -150,11 +150,11 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 	--> Algorithm 2 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
 	local n: number = #b2
 
-	local q: {number}, R: {number}, D: {number}
+	local q: {number}, R: {number}, D: {number}, a1a2: {number}
 	if Cmp.LowerThan(a1, b1) then -- step 3a: a1 < b1
-		local a1a2: {number} = AddLimbs(LeftShift(a1, n), a2, true)
+		a1a2 = AddLimbs(LeftShift(a1, n), a2, true)
 		q, R = DivBZ2n1n(a1a2, b1, true)
-
+		
 		-- step 4: d = q * b2
 		if #q == 0 then
 			D = {}
@@ -175,6 +175,7 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 	
 	--> only do B = if R<D. comparison runs twice but comparison never was slow
 	if Cmp.LowerThan(R, D) then
+		if a1a2 then ReturnAlloc(a1a2) end
 		local B: {number} = AddLimbs(LeftShift(b1, n), b2, true) -- [b1, b2]
 		
 		while Cmp.LowerThan(R, D) do
@@ -191,8 +192,11 @@ function DivBZ2n1n(A: {number}, B: {number}, noRet: boolean?): ({number}, {numbe
 	--> this function has to be global because of its use in DivBZ3n2n.
 	--> Algorithm 1 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
 
-	--> NOT REUSED: a4, b1, b2
 	local bLen: number = #B
+	
+	if #A < bLen then
+		return {}, tclone(A)
+	end
 	
 	--> basecase
 	if bLen % 2 == 1 or bLen < BURNIKEL_THRESHOLD then
@@ -211,14 +215,14 @@ function DivBZ2n1n(A: {number}, B: {number}, noRet: boolean?): ({number}, {numbe
 	--> get q1,R
 	local q1: {number}, r: {number} = DivBZ3n2n(a1, a2, a3, b1, b2)
 	
-	--ReturnAlloc(a2); ReturnAlloc(a3) -- r1 & r2 takes a2 & a3's place
+	ReturnAlloc(a2); ReturnAlloc(a3); ReturnAlloc(a1)
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
 	local a4: {number} = GetLower(A, k)
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
 
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
-
+	
 	return Q, S
 end
 
@@ -263,16 +267,18 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 	--> 7. for i = t - 2, 1 do
 	local quotient: {number} = {}
 	for i: number = t-2, 1, -1 do
-		--> 8a. qi, ri
-		local qi: {number}, ri: {number} = DivBZ2n1n(z, bShifted)
-		quotient = AddLimbs(quotient, LeftShift(qi, i*n, true), true)
-		
 		--> get ai1
 		local startIdx: number = (i- 1) * n + 1
 		local endIdx: number = i * n
 		local ai1: {number} = GetSlice(aShifted, startIdx, endIdx)
+		
+		--> 8a. qi, ri
+		local qi: {number}, ri: {number} = DivBZ2n1n(z, bShifted)
+		quotient = AddLimbs(quotient, LeftShift(qi, i*n, true), true)
 
 		z = AddLimbs(LeftShift(ri, n, true), ai1, true)
+		ReturnAlloc(qi, n//2) -- will be used inside divbz2n1n by getslice
+		ReturnAlloc(ai1) -- will be used by next iteration getslice
 	end
 	
 	local qi: {number}, ri: {number} = DivBZ2n1n(z, bShifted)
