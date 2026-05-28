@@ -5,16 +5,13 @@ In the computational complexity, we use a couple of terms that may be unknown to
 - m - size of secondary input, also in limbs
   
 ### Addition and subtraction
-No algorithms used.<br/>
-- Average case: O(min(n, m))
-- Worst case: O(max(n, m))
+No algorithms used. O(max(n, m)).<br/>
 
 ### Multiplication
 3 algorithms are used to multiply:
 - Basecase multiplication: diagonal-based O(n^2) multiplication.
 - Karatsuba multiplication: For n,m > `KARATSUBA_THRESHOLD`, O(n^1.565) [Karatsuba algorithm](https://en.wikipedia.org/wiki/Karatsuba_algorithm) is used.
 - Toom Cook-3 multiplication: For n,m > `TOOM_THRESHOLD`, O(n^1.464) [Toom-3 multiplication](https://en.wikipedia.org/wiki/Toom%E2%80%93Cook_multiplication) is used.
-   - Toom-1.5 multiplication was considered due to the amount of time Basecase multiplication takes, but it was deemed too slow.
 
 ### Division
 2 algorithms are used to divide:
