@@ -65,7 +65,7 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 	for i: number = #Un + 1, m + n + 1 do
 		Un[i] = 0
 	end
-
+	
 	--> d2. init j
 	local qhat: number, rhat: number = 0, 0
 	for j: number = m, 0, -1 do

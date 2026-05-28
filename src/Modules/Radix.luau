@@ -17,19 +17,26 @@ const tclone: ({number}) -> {number} = table.clone
 const tconcat: ({string}) -> string = table.concat
 
 const ceil: (number) -> number = math.ceil
+const log: (number, number) -> number = math.log
 const floor: (number) -> number = math.floor
 const log10: (number) -> number = math.log10
 const max: (number, number) -> number = math.max
 
 const sformat: (string, number) -> string = string.format
+const srep: (string, number) -> string = string.rep
 
 --> -1 because 2^BASE < RADIX_CHUNK_SIZE
 const RADIX_CHUNK_SIZE: number = Constants.RADIX_CHUNK_SIZE
 const RADIX_LEN_CONST: number = Constants.RADIX_LEN_CONST
 const RADIX_CHUNK_POW: number = Constants.RADIX_CHUNK_POW - 1
+
+const FAST_TOSTRING_THRESHOLD: number = Constants.FAST_TOSTRING_THRESHOLD
 const BASE: number = Constants.BASE
 
 local squareCache: {{number}} = {}
+local powCache: {{number}} = {
+	{10}, {10^2}, {10^3}, {10^4}, {10^5}, {10^6}, {10^7}
+}
 
 local function SquareBase(b: {number}, depth: number): {number}
 	if squareCache[depth] then return squareCache[depth] end
@@ -38,6 +45,14 @@ local function SquareBase(b: {number}, depth: number): {number}
 	squareCache[depth] = sq
 	
 	return sq
+end
+
+local function PowBase(k: number): {number}
+	if not powCache[k] then
+		powCache[k] = Pow.PowByInt({10}, k)
+	end
+	
+	return powCache[k]
 end
 
 function Radix.NaiveToString(limbs: {number}): string
@@ -124,20 +139,20 @@ function Radix.ToString(limbs: {number}): string
 	--> Algorithm 1.26: FastIntegerOutput
 	--> https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf
 	local len: number = #limbs
-	if len <= 3 then
+	if len <= FAST_TOSTRING_THRESHOLD then
 		return Radix.NaiveToString(limbs)
 	end
-	
+
 	--> get digits in base 10, same as .__tostring
 	local topVal: number = limbs[len] * BASE + limbs[len - 1]
 	local k: number = floor(log10(topVal) + (len - 2) * RADIX_LEN_CONST) + 1
-	k = k//2-1
+	k//=2
 	
-	local Bk: {number} = Pow.PowByInt({10}, k)
+	local Bk: {number} = PowBase(k)
 	local Q: {number}, R: {number} = Div.DivLimbs(limbs, Bk)
-	
+
 	local r: string = Radix.ToString(R)
-	
+
 	return Radix.ToString(Q)..string.rep("0", k-#r)..r
 end
 

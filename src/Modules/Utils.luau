@@ -28,6 +28,7 @@ local tblPool: {{number}} = {}
 local currPoolLen: number = 0
 local function CleanPool()
 	table.clear(tblPool)
+	currPoolLen = 0
 end
 
 function Utils.GetAlloc(size: number, fallback: {number}?): {number}
