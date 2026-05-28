@@ -27,7 +27,6 @@ local Type = require("./Type")
 
 export type AptInt = Type.AptInt
 export type AptIntMetatable = Type.AptIntMetatable
-export type AptIntAPI = Type.AptIntAPI
 export type ValidMetamethodArgument = Type.ValidMetamethodArgument
 export type ValidConstructor = Type.ValidConstructor
 
@@ -52,12 +51,12 @@ const tclone: ({number}) -> {number} = table.clone
 -- =================
 
 const BASE: number = Constants.BASE
+const BASE_MASK: number = Constants.BASE_MASK
 
 const RADIX_LEN_CONST: number = Constants.RADIX_LEN_CONST
 const MAX_TONUMBER_LEN: number = Constants.MAX_TONUMBER_LEN
 
 local AP_NEG_ONE: AptInt
-const ONE_LIMB: {number} = {1}
 
 --> CONSTRUCTOR
 local typeConstructors: {[string]: (any) -> ({number}, number)} = {
@@ -619,7 +618,15 @@ AptInt.__len = function(n: AptInt): number
 	if n.signum == 0 then return 0 end
 	
 	local limbs: {number} = n.limbs
-	return floor(log10(limbs[#limbs]) + (#limbs - 1) * RADIX_LEN_CONST) + 1
+	local len: number = #limbs
+	
+	if len == 1 then
+		return floor(log10(limbs[1])) + 1
+	end
+	
+	--> use the top two instead of top one, just the top one offers innacuracies
+	local topVal: number = limbs[len] * BASE + limbs[len - 1]
+	return floor(log10(topVal) + (len - 2) * RADIX_LEN_CONST) + 1
 end
 
 return table.freeze(AptInt)

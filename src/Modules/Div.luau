@@ -129,7 +129,6 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 
 	--> d8. unnormalize
 	local carry: number = 0
-
 	for i: number = #Un, 1, -1 do
 		local x: number = carry * BASE + Un[i]
 

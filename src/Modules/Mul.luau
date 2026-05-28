@@ -27,7 +27,6 @@ const max: (number, number) -> number = math.max
 const min: (number, number) -> number = math.min
 
 const tclone: ({number}) -> {number} = table.clone
-const tcreate: (number) -> {number} = table.create
 const tinsert: ({number}, number) -> () = table.insert
 
 -- =================
