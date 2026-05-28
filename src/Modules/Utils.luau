@@ -95,7 +95,7 @@ end
 
 --> get limbs from startIdx to endIdx
 function Utils.GetSlice(limbs: {number}, startIdx: number, endIdx: number): {number}
-	local moveTo: {number} = Utils.GetAlloc(endIdx - startIdx + 1)
+	local moveTo: {number} = --[[Utils.GetAlloc(endIdx - startIdx + 1)
 	return tmove(limbs, startIdx, endIdx, 1, moveTo)
 end
 

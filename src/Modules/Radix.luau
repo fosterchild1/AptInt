@@ -10,8 +10,6 @@ local Add = require("./Add")
 local Mul = require("./Mul")
 local Div = require("./Div")
 local Pow = require("./Pow")
-local Cmp = require("./Cmp")
-local Sub = require("./Sub")
 
 --> FUNCTION CONSTANTS
 const tcreate: <V>(number, V?) -> {V} = table.create
@@ -40,6 +38,37 @@ local function SquareBase(b: {number}, depth: number): {number}
 	squareCache[depth] = sq
 	
 	return sq
+end
+
+local function NaiveToString(limbs: {number}): string
+	if #limbs == 0 then
+		return  "0"
+	end
+	
+	local clone: {number} = tclone(limbs)
+
+	local chunkAmount: number = ceil(#clone * log10(BASE) / floor(log10(RADIX_CHUNK_SIZE)))
+	local chunks: {string} = tcreate(chunkAmount, "")
+
+	local chunkIdx: number = chunkAmount
+	while #clone > 0 do
+		local carry: number = 0
+		for i: number = #clone, 1, -1 do
+			local val: number = clone[i] + carry * BASE
+
+			carry = val % RADIX_CHUNK_SIZE
+			clone[i] = val // RADIX_CHUNK_SIZE
+		end
+
+		--> we write in reverse order
+		chunks[chunkIdx] = sformat("%08d", carry)
+		chunkIdx -= 1
+
+		Utils.StripLeadingZeros(clone)
+	end
+
+	local str: string = tconcat(chunks):gsub("^0+", "") -- removes leading zeros, fast
+	return str
 end
 
 function Radix.fromString(str: string): ({number}, number)
@@ -91,49 +120,20 @@ function Radix.fromString(str: string): ({number}, number)
 	return l[1], isNegative and -1 or 1
 end
 
-function Radix.Old(limbs: {number}): string
-	if #limbs == 0 then
-		return  "0"
-	end
-	
-	local clone: {number} = tclone(limbs)
-
-	local chunkAmount: number = ceil(#clone * log10(BASE) / floor(log10(RADIX_CHUNK_SIZE)))
-	local chunks: {string} = tcreate(chunkAmount, "")
-
-	local chunkIdx: number = chunkAmount
-	while #clone > 0 do
-		local carry: number = 0
-		for i: number = #clone, 1, -1 do
-			local val: number = clone[i] + carry * BASE
-
-			carry = val % RADIX_CHUNK_SIZE
-			clone[i] = val // RADIX_CHUNK_SIZE
-		end
-
-		--> we write in reverse order
-		chunks[chunkIdx] = sformat("%08d", carry)
-		chunkIdx -= 1
-
-		Utils.StripLeadingZeros(clone)
-	end
-
-	local str: string = tconcat(chunks):gsub("^0+", "") -- removes leading zeros, fast
-	return str
-end
-
 function Radix.ToString(limbs: {number}): string
 	--> Algorithm 1.26: FastIntegerOutput
 	--> https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf
 	local len: number = #limbs
 	if len <= 3 then
-		return Radix.Old(limbs)
+		local s: string = NaiveToString(limbs)
+		
+		return NaiveToString(limbs)
 	end
 	
 	--> get digits in base 10, same as .__tostring
 	local topVal: number = limbs[len] * BASE + limbs[len - 1]
 	local k: number = floor(log10(topVal) + (len - 2) * RADIX_LEN_CONST) + 1
-	k = k//2-2
+	k = k//2-1
 	
 	local Bk: {number} = Pow.PowByInt({10}, k)
 	local Q: {number}, R: {number} = Div.DivLimbs(limbs, Bk)

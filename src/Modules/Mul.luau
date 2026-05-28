@@ -64,7 +64,7 @@ end
 local function MulLimbsBasecase(self: {number}, factor: {number}): {number}
 	local selfLen: number, factorLen: number = #self, #factor
 	local len: number = selfLen + factorLen
-	local result: {number} = Utils.GetAlloc(len)
+	local result: {number} = table.create(len, 0)
 	
 	factorLen -= 1
 	local carry: number = 0

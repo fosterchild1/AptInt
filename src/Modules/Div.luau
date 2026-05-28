@@ -31,6 +31,8 @@ const floor: (number) -> number = math.floor
 
 const tclone: ({number}) -> {number} = table.clone
 const tcreate: (number, number?) -> {number} = table.create
+const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
+local tclear: ({number}) -> () = table.clear
 
 -- =================
 --> NORMAL CONSTANTS
@@ -151,11 +153,14 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 	local q: {number}, R: {number}, D: {number}
 	if Cmp.LowerThan(a1, b1) then -- step 3a: a1 < b1
 		local a1a2: {number} = AddLimbs(LeftShift(a1, n), a2, true)
-		q, R = DivBZ2n1n(a1a2, b1)
+		q, R = DivBZ2n1n(a1a2, b1, true)
 
 		-- step 4: d = q * b2
-		ReturnAlloc(a1a2) -- D takes a1a2's place
-		D = Mul.MulLimbs(q, b2)
+		if #q == 0 then
+			D = {}
+		else
+			D = Mul.MulLimbs(q, b2)
+		end
 	else -- step 3b: a1 >= b1
 		q = tcreate(n, BASE_MASK) -- q = beta^n-1
 
@@ -163,7 +168,7 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 		R = AddLimbs(AddLimbs(R, b1, true), a2, true) -- [0, a2] + [0, b1]
 
 		-- step 4: D = (b2 << n) - b2
-		D = SubLimbs(LeftShift(b2, n, true), b2, true)
+		D = SubLimbs(LeftShift(b2, n), b2, true)
 	end
 
 	AddLimbs(LeftShift(R, n, true), a3, true) -- paper says a4 but its actually a3
@@ -182,19 +187,21 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 	return q, R
 end
 
-function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
+function DivBZ2n1n(A: {number}, B: {number}, noRet: boolean?): ({number}, {number})
 	--> this function has to be global because of its use in DivBZ3n2n.
 	--> Algorithm 1 from https://pure.mpg.de/rest/items/item_1819444_4/component/file_2599480/content
 
 	--> NOT REUSED: a4, b1, b2
 	local bLen: number = #B
-
+	
 	--> basecase
 	if bLen % 2 == 1 or bLen < BURNIKEL_THRESHOLD then
-		return DivKnuths(A, B)
+		local q: {number}, r: {number} = DivKnuths(A, B)
+		Utils.StripLeadingZeros(q)
+		return q, r
 	end
 
-	local k: number = bLen/2
+	local k: number = bLen//2
 
 	--> get a1,a2,a3,a4 and b1,b2, where a=[a1,a2,a3,a4] and b=[b1,b2]
 	local a1: {number}, a2: {number} = GetSlice(A, 3*k+1, 4*k), GetSlice(A, 2*k+1, 3*k)
@@ -204,15 +211,14 @@ function DivBZ2n1n(A: {number}, B: {number}): ({number}, {number})
 	--> get q1,R
 	local q1: {number}, r: {number} = DivBZ3n2n(a1, a2, a3, b1, b2)
 	
-	ReturnAlloc(a2); ReturnAlloc(a3) -- r1 & r2 takes a2 & a3's place
+	--ReturnAlloc(a2); ReturnAlloc(a3) -- r1 & r2 takes a2 & a3's place
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
 	local a4: {number} = GetLower(A, k)
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
 
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
-	ReturnAlloc(q1) -- somehow speeds stuff up, man...
-	
+
 	return Q, S
 end
 
@@ -249,28 +255,46 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 	--> 5. calculate t: how many n-sized chunks are in A, t >= 2
 	local t: number = max(ceil(r/n), 2)
 
-	--> 6. z = [a[t-1], 0]. we add a[t-2] inside loop
-	local z: {number} = GetSlice(aShifted, (t-1)*n+1, r)
+	--> 6. calculate z
+	local zHi: {number} = GetSlice(aShifted, (t - 1) * n + 1, t * n)
+	local zLo: {number} = GetSlice(aShifted, (t - 2) * n + 1, (t - 1) * n)
+	local z: {number} = AddLimbs(LeftShift(zHi, n, true), zLo, true)
 
 	--> 7. for i = t - 2, 1 do
 	local quotient: {number} = {}
-	for i: number = t-2, 0, -1 do
-		--> get ai1
-		local startIdx: number = i * n + 1
-		local endIdx: number = (i + 1) * n
-		local ai1: {number} = GetSlice(aShifted, startIdx, endIdx)
-
-		z = AddLimbs(LeftShift(z, n, true), ai1, true)
-
+	for i: number = t-2, 1, -1 do
 		--> 8a. qi, ri
 		local qi: {number}, ri: {number} = DivBZ2n1n(z, bShifted)
 		quotient = AddLimbs(quotient, LeftShift(qi, i*n, true), true)
+		
+		--> get ai1
+		local startIdx: number = (i- 1) * n + 1
+		local endIdx: number = i * n
+		local ai1: {number} = GetSlice(aShifted, startIdx, endIdx)
 
-		z = ri
-		ReturnAlloc(ai1) -- ai1 takes ai1's place
+		z = AddLimbs(LeftShift(ri, n, true), ai1, true)
 	end
-
+	
+	local qi: {number}, ri: {number} = DivBZ2n1n(z, bShifted)
+	quotient = AddLimbs(quotient, qi, true)
+	z = ri
+	
+	--> undo shifts from step 3
 	Utils.DivByInt(z, sigma, true)
+	
+	if shift > 0 then
+		local len: number = #z
+		
+		if len > shift then
+			tmove(z, shift + 1, len, 1, z)
+			for i: number = len - shift + 1, len do
+				z[i] = nil
+			end
+		elseif len > 0 then
+			tclear(z)
+		end
+	end
+	
 	return quotient, z
 end
 
