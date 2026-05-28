@@ -42,6 +42,15 @@ const BASE: number = Constants.BASE
 --> FUNCTIONS
 -- ==========
 
+local function DynamicReturn(arr: {number}): ()
+	local size: number = #arr
+	if size < KARATSUBA_THRESHOLD then
+		return ReturnAlloc(arr, #arr//2) -- karatsuba splits in halves
+	end
+	
+	ReturnAlloc(arr, #arr//3) -- toom cook splits in thirds
+end
+
 function Mul.MulByInt(self: {number}, num: number): {number}
 	local result: {number} = tclone(self)
 	
@@ -110,11 +119,12 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 	local result: {number} = LeftShift(z2, m2)
 	SubLimbs(z1, AddLimbs(z2, z0, true), true)
 	
-	AddLimbs(result, z1, true)
+	result = AddLimbs(result, z1, true)
 	
 	LeftShift(result, m2, true)
 	AddLimbs(result, z0, true)
 	
+	ReturnAlloc(z0); ReturnAlloc(z1); ReturnAlloc(z2)
 	return result
 end
 
@@ -131,9 +141,6 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	local y0: {number}, y1: {number} = GetSlice(y, 1, k), GetSlice(y, k+1, 2*k)
 	local y2: {number} = GetSlice(y, 2*k+1, 2*k+r)
 	
-	local v0: {number} = Mul.MulLimbs(x0, y0)
-	local vinf: {number} = Mul.MulLimbs(x2, y2)
-	
 	local da1: {number} = AddLimbs(x2, x0)
 	local db1: {number} = AddLimbs(y2, y0)
 	
@@ -143,56 +150,58 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	local vm1rhs: {number} = db1neg and SubLimbs(y1, db1) or SubLimbs(db1, y1)
 	
 	local vm1: {number} = Mul.MulLimbs(vm1lhs, vm1rhs)
-	ReturnAlloc(vm1lhs); ReturnAlloc(vm1rhs)
 	local vm1neg: boolean = da1neg ~= db1neg
 	
 	da1 = AddLimbs(da1, x1, true)
 	db1 = AddLimbs(db1, y1, true)
-	ReturnAlloc(x1); ReturnAlloc(y1)
 
+	DynamicReturn(x1); DynamicReturn(y1)
+	DynamicReturn(vm1lhs); DynamicReturn(vm1rhs)
+	local v0: {number} = Mul.MulLimbs(x0, y0)
 	local v1: {number} = Mul.MulLimbs(da1, db1)
+	
 	da1 = AddLimbs(da1, x2, true)
 	db1 = AddLimbs(db1, y2, true)
-	ReturnAlloc(x2); ReturnAlloc(y2)
 
 	local v2: {number} = SubLimbs(AddLimbs(da1, da1, true), x0, true)
 	v2 = Mul.MulLimbs(v2, SubLimbs(AddLimbs(db1, db1, true), y0, true))
 	
-	ReturnAlloc(da1); ReturnAlloc(db1)
-	ReturnAlloc(x0); ReturnAlloc(y0)
+	DynamicReturn(da1); DynamicReturn(db1)
+	DynamicReturn(x0); DynamicReturn(y0)
+	local vinf: {number} = Mul.MulLimbs(x2, y2)
 	
 	--> all divisions here are single-limb, so they are linear.
 	v2 = (vm1neg and AddLimbs(v2, vm1, true) or SubLimbs(v2, vm1, true))
+	local tm1: {number} = vm1neg and AddLimbs(v1, vm1) or SubLimbs(v1, vm1)
 	Utils.DivByInt(v2, 3, true)
 	
-	local tm1: {number} = vm1neg and AddLimbs(v1, vm1) or SubLimbs(v1, vm1)
-	ReturnAlloc(vm1)
 	Utils.DivByInt(tm1, 2, true)
 	
 	v1 = SubLimbs(v1, v0, true)
 	
+	ReturnAlloc(vm1)
+	local vinf2: {number} = AddLimbs(vinf, vinf)
+	
 	Utils.DivByInt(SubLimbs(v2, v1, true), 2, true)
 	v1 = SubLimbs(SubLimbs(v1, tm1, true), vinf, true)
-	v2 = SubLimbs(v2, AddLimbs(vinf, vinf), true)
+	v2 = SubLimbs(v2, vinf2, true)
 	tm1 = SubLimbs(tm1, v2, true)
 	
 	--> combine to get result = (vinf << 4k) + (v2 << 3k) + (v1 << 2k) + (tm1 << k) + v0
 	local result: {number} = LeftShift(vinf, k, true)
 	result = AddLimbs(result, v2, true)
-	ReturnAlloc(v2)
 	
 	LeftShift(result, k, true)
 	result = AddLimbs(result, v1, true)
-	ReturnAlloc(v1)
 	
 	LeftShift(result, k, true)
 	result = AddLimbs(result, tm1, true)
-	ReturnAlloc(tm1)
 	
 	LeftShift(result, k, true)
 	result = AddLimbs(result, v0, true)
-	ReturnAlloc(v0)
 	
+	ReturnAlloc(vinf2)
+	ReturnAlloc(v0); ReturnAlloc(v1); ReturnAlloc(v2); ReturnAlloc(tm1)
 	--> dont return vinf, as its the result
 	return result
 end
