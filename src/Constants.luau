@@ -7,7 +7,7 @@ const constants = {
 	RADIX_CHUNK_POW = 8,
 	MAX_TONUMBER_LEN = 43, -- min{k | BASE^k > 2^1024-1}
 	
-	ALLOC_MIN_SIZE = 20,
+	ALLOC_MIN_SIZE = 17,
 	ALLOC_POOL_SIZE = 32,
 	
 	--> algorithm thresholds (size in limbs)

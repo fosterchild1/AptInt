@@ -55,7 +55,7 @@ local function PowBase(k: number): {number}
 	return powCache[k]
 end
 
-function Radix.NaiveToString(limbs: {number}): string
+local function NaiveToString(limbs: {number}): string
 	if #limbs == 0 then
 		return  "0"
 	end
@@ -140,7 +140,7 @@ function Radix.ToString(limbs: {number}): string
 	--> https://maths-people.anu.edu.au/~brent/pd/mca-cup-0.5.9.pdf
 	local len: number = #limbs
 	if len <= FAST_TOSTRING_THRESHOLD then
-		return Radix.NaiveToString(limbs)
+		return NaiveToString(limbs)
 	end
 
 	--> get digits in base 10, same as .__tostring

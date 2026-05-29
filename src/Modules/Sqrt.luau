@@ -34,6 +34,9 @@ const tcreate: (number, number) -> {number} = table.create
 const SQRT_KARATSUBA_THRESHOLD: number = Constants.SQRT_KARATSUBA_THRESHOLD
 const SQRT_NEWTON_THRESHOLD: number = Constants.SQRT_NEWTON_THRESHOLD
 
+const KARATSUBA_THRESHOLD: number = Constants.KARATSUBA_THRESHOLD
+const TOOM3_THRESHOLD: number = Constants.TOOM3_THRESHOLD
+
 local function BinarySearchSqrt(n: {number}) : {number}
 	--> get low and high, range of high to low is BASE
 	--> at most BASE_POW checks
@@ -74,9 +77,7 @@ local function NewtonHeronSqrt(n: {number}): {number}
 	while true do
 		local q: {number}, _: {number} = Div.DivLimbs(n, prev1)
 		local x1: {number} = Div.DivByInt(AddLimbs(prev1, q), 2, true)
-
-		--> Cmp.Compare isnt faster here because LowerThan only runs once
-		--> Cmp.Equals is way faster
+		
 		if Cmp.Equals(x1, prev1) then
 			return x1
 		end
@@ -84,7 +85,7 @@ local function NewtonHeronSqrt(n: {number}): {number}
 		if Cmp.Equals(x1, prev2) then
 			return (Cmp.LowerThan(x1, prev1) and x1 or prev1) -- min(x1, prev1)
 		end
-
+		
 		prev2, prev1 = prev1, x1
 	end
 end
@@ -97,9 +98,9 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	local limbLen: number = #n
 	if limbLen < SQRT_KARATSUBA_THRESHOLD then
 		local isq: {number} = Sqrt.ISqrtLimbs(n)
-		local isqSq: {number} = Mul.MulLimbs(isq, isq)
-		local remainder: {number} = SubLimbs(n, isqSq)
-
+		local remainder: {number} = SubLimbs(n, Mul.MulLimbs(isq, isq))
+		
+		ReturnAlloc(remainder)
 		return isq, remainder
 	end
 
@@ -127,10 +128,18 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	local s: {number} = AddLimbs(LeftShift(s1, m, true), q, true)
 	-- r=u*b+a0-q^2
 	local r: {number} = AddLimbs(LeftShift(u, m, true), a0, true)
-
-	ReturnAlloc(a3a2) -- return a3a2, qsquared will take its place (only on basecase mul)
+	
+	--> return a3a2 such that one step of mullimbs uses it
+	local qLen: number = #q
+	if qLen < KARATSUBA_THRESHOLD then
+		ReturnAlloc(a3a2)
+	elseif qLen < TOOM3_THRESHOLD then
+		ReturnAlloc(a3a2, #a3a2//4)
+	else
+		ReturnAlloc(a3a2, #a3a2//6)
+	end
 	local qSquared: {number} = Mul.MulLimbs(q, q)
-
+	
 	local willCorrect: boolean = Cmp.LowerThan(r, qSquared) -- if r will be negative
 	r = SubLimbs(r, qSquared, true)
 	ReturnAlloc(q)

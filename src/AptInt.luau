@@ -35,10 +35,13 @@ export type ValidConstructor = Type.ValidConstructor
 -- ================================
 
 const log10: (number) -> number = math.log10
+const log: (number, number) -> number = math.log
 const floor: (number) -> number = math.floor
 const max: (number, number) -> number = math.max
 const abs: (number) -> number = math.abs
 const sign: (number) -> number = math.sign
+
+const bband: (number, number) -> number = bit32.band
 
 -- the types here may be off, but native optimizes them more than their actual types
 const tcreate: (number, number) -> {number} = table.create
@@ -334,22 +337,31 @@ end
 -- Returns a new AptInt equal to <code>a % b</code>.
 function AptInt:ModRaw(div: AptInt): AptInt
 	local divLimbs: {number}, selfLimbs: {number} = div.limbs, self.limbs
+	local divLen: number = #divLimbs
 
 	local selfSign: number, divSign: number = self.signum, div.signum
 
 	--> CASES
-	if #divLimbs == 0 or #selfLimbs == 0 or divSign == 0 then
+	if divLen == 0 or #selfLimbs == 0 or divSign == 0 then
 		return FromLimbs({})
 	end
 
-	local divFirst: number = divLimbs[1] * divSign
-	if #divLimbs == 1 and abs(divFirst) == 1 then
+	local divFirst: number = divLimbs[1]
+	if divLen == 1 and divFirst == 1 then
 		return FromLimbs({})
-	elseif #selfLimbs == 1 and #divLimbs == 1 then
+	elseif #selfLimbs == 1 and divLen == 1 then
 		local selfFirst: number = selfLimbs[1] * selfSign
-		return AptInt.new(selfFirst % divFirst)
+		return AptInt.new(selfFirst % (divFirst * divSign))
 	end
-
+	
+	--> 2^k mod fast paths
+	if divLen == 1 and selfSign == 1 and divSign == 1 then
+		local exp: number = math.log(divFirst, 2)
+		if floor(exp) == exp then
+			return AptInt.new(bband(selfLimbs[1], divFirst-1))
+		end
+	end
+	
 	local _: AptInt, r: AptInt = self:DivideRaw(div)
 	return r
 end

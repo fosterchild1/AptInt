@@ -41,6 +41,9 @@ local tclear: ({number}) -> () = table.clear
 const BURNIKEL_THRESHOLD: number = Constants.BURNIKEL_THRESHOLD
 const MIN_BURNIKEL_OFFSET: number = Constants.MIN_BURNIKEL_OFFSET
 
+const KARATSUBA_THRESHOLD: number = Constants.KARATSUBA_THRESHOLD
+const TOOM3_THRESHOLD: number = Constants.TOOM3_THRESHOLD
+
 const BASE: number = Constants.BASE
 const BASE_MASK: number = Constants.BASE_MASK
 
@@ -159,6 +162,15 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 		if #q == 0 then
 			D = {}
 		else
+			--> return a1a2 such that one step of mullimbs uses it
+			if n < KARATSUBA_THRESHOLD then
+				ReturnAlloc(a1a2)
+			elseif n < TOOM3_THRESHOLD then
+				ReturnAlloc(a1a2, #a1a2//4)
+			else
+				ReturnAlloc(a1a2, #a1a2//6)
+			end
+			
 			D = Mul.MulLimbs(q, b2)
 		end
 	else -- step 3b: a1 >= b1
@@ -208,20 +220,23 @@ function DivBZ2n1n(A: {number}, B: {number}, noRet: boolean?): ({number}, {numbe
 	local k: number = bLen//2
 
 	--> get a1,a2,a3,a4 and b1,b2, where a=[a1,a2,a3,a4] and b=[b1,b2]
+	local b1: {number}, b2: {number} = GetUpper(B, k), GetLower(B, k)
+	
 	local a1: {number}, a2: {number} = GetSlice(A, 3*k+1, 4*k), GetSlice(A, 2*k+1, 3*k)
 	local a3: {number} = GetSlice(A, k+1, 2*k)
-	local b1: {number}, b2: {number} = GetUpper(B, k), GetLower(B, k)
 
 	--> get q1,R
 	local q1: {number}, r: {number} = DivBZ3n2n(a1, a2, a3, b1, b2)
 	
-	ReturnAlloc(a2); ReturnAlloc(a3); ReturnAlloc(a1)
+	ReturnAlloc(a1); ReturnAlloc(a2); ReturnAlloc(a3)
 	local r1: {number}, r2: {number} = GetUpper(r, k), GetLower(r, k)
 	local a4: {number} = GetLower(A, k)
 	local q2: {number}, S: {number} = DivBZ3n2n(r1, r2, a4, b1, b2)
 
 	--> Q=[q1,q2]
 	local Q: {number} = AddLimbs(LeftShift(q1, k, true), q2, true) -- Q = [q1,q2]
+	ReturnAlloc(r1); ReturnAlloc(r2)
+	ReturnAlloc(q2); ReturnAlloc(a4)
 	
 	return Q, S
 end
@@ -278,7 +293,7 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 
 		z = AddLimbs(LeftShift(ri, n, true), ai1, true)
 		ReturnAlloc(qi, n//2) -- will be used inside divbz2n1n by getslice
-		ReturnAlloc(ai1) -- will be used by next iteration getslice
+		ReturnAlloc(ai1) -- will be used by next iteration ai1
 	end
 	
 	local qi: {number}, ri: {number} = DivBZ2n1n(z, bShifted)

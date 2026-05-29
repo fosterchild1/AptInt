@@ -52,10 +52,10 @@ local function DynamicReturn(arr: {number}): ()
 end
 
 function Mul.MulByInt(self: {number}, num: number): {number}
-	local result: {number} = tclone(self)
+	local result: {number} = Utils.GetAlloc(#self, self)
 	
 	local carry: number = 0
-	for i: number, limb: number in result do
+	for i: number, limb: number in self do
 		local product: number = limb * num + carry
 
 		carry = product // BASE
