@@ -324,7 +324,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	remainder = CorrectRemainder(self, divisor, remainder)
 	if not sameSign and #remLimbs > 0 then
 		--> floor semantics: mixed-sign non-exact division needs one extra step
-		quotient.limbs = Add.AddByInt(quotient.limbs, 1, true)
+		Add.AddByInt(quotient.limbs, 1, true)
 	end
 
 	quotient.signum = selfSign / divSign

@@ -107,24 +107,22 @@ local function MulKaratsuba(x: {number}, y: {number}): {number}
 
 	local z0: {number} = Mul.MulLimbs(low1, low2)
 	local z1: {number} = Mul.MulLimbs(AddLimbs(low1, high1, true), AddLimbs(low2, high2, true))
-	
-	ReturnAlloc(low1)
+
 	ReturnAlloc(low2)
 	local z2: {number} = Mul.MulLimbs(high1, high2)
-	ReturnAlloc(high1)
 	ReturnAlloc(high2)
-
+	
 	-- result = z0 + ((z1 - z2 - z0) << m2) + (z2 << 2*m2)
 	-- => (z2 << m2 + (z1 - (z2 + z0))) << m2 + z0
-	local result: {number} = LeftShift(z2, m2)
+	local result: {number} = LeftShift(z2, m2)	
 	SubLimbs(z1, AddLimbs(z2, z0, true), true)
-	
 	result = AddLimbs(result, z1, true)
 	
 	LeftShift(result, m2, true)
 	AddLimbs(result, z0, true)
 	
-	ReturnAlloc(z0); ReturnAlloc(z1); ReturnAlloc(z2)
+	ReturnAlloc(low1); ReturnAlloc(high1)
+	ReturnAlloc(z0, m2); ReturnAlloc(z1, m2); ReturnAlloc(z2, m2)
 	return result
 end
 
@@ -132,13 +130,14 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	local largest: number = max(#x, #y)
 
 	local k: number = largest//3
+	local khalf: number = k//2
 	local r: number = largest*2//3
 
 	--> get slices
-	local x0: {number}, x1: {number} = GetSlice(x, 1, k), GetSlice(x, k+1, 2*k)
+	local x0: {number}, x1: {number} = GetLower(x, k), GetSlice(x, k+1, 2*k)
 	local x2: {number} = GetSlice(x, 2*k+1, 2*k+r)
 
-	local y0: {number}, y1: {number} = GetSlice(y, 1, k), GetSlice(y, k+1, 2*k)
+	local y0: {number}, y1: {number} = GetLower(y, k), GetSlice(y, k+1, 2*k)
 	local y2: {number} = GetSlice(y, 2*k+1, 2*k+r)
 	
 	local da1: {number} = AddLimbs(x2, x0)
@@ -174,7 +173,6 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	v2 = (vm1neg and AddLimbs(v2, vm1, true) or SubLimbs(v2, vm1, true))
 	local tm1: {number} = vm1neg and AddLimbs(v1, vm1) or SubLimbs(v1, vm1)
 	Utils.DivByInt(v2, 3, true)
-	
 	Utils.DivByInt(tm1, 2, true)
 	
 	v1 = SubLimbs(v1, v0, true)
@@ -192,16 +190,19 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	result = AddLimbs(result, v2, true)
 	
 	LeftShift(result, k, true)
-	result = AddLimbs(result, v1, true)
+	AddLimbs(result, v1, true)
 	
 	LeftShift(result, k, true)
-	result = AddLimbs(result, tm1, true)
+	AddLimbs(result, tm1, true)
 	
 	LeftShift(result, k, true)
-	result = AddLimbs(result, v0, true)
+	AddLimbs(result, v0, true)
 	
-	ReturnAlloc(vinf2)
-	ReturnAlloc(v0); ReturnAlloc(v1); ReturnAlloc(v2); ReturnAlloc(tm1)
+	--> inside toomcook3, all mullimbs are placed right after eachother
+	--> these will be reused by getslice and adds/subs in next toomcook3 call
+	ReturnAlloc(x2); ReturnAlloc(y2)
+	ReturnAlloc(vinf2, khalf)
+	ReturnAlloc(v0, khalf); ReturnAlloc(v1, khalf); ReturnAlloc(v2, khalf); ReturnAlloc(tm1, khalf)
 	--> dont return vinf, as its the result
 	return result
 end

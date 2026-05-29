@@ -32,15 +32,12 @@ local function CleanPool()
 end
 
 function Utils.GetAlloc(size: number, fallback: {number}?): {number}
-	--> sometimes size can be negative from getlower/upper/slice
-	size = max(size, 0)
-	if size < ALLOC_MIN_SIZE then return tcreate(size, 0) end
-	
-	if currPoolLen == 0 then
+	size = max(size, 0) -- sometimes size can be negative from getslice
+	if size < ALLOC_MIN_SIZE or currPoolLen == 0 then
 		if fallback then return tclone(fallback) end
 		return tcreate(size, 0)
 	end
-
+	
 	local extTbl: {number} = tblPool[currPoolLen]
 	local tblLen: number = #extTbl
 	tblPool[currPoolLen] = nil

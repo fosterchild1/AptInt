@@ -31,10 +31,10 @@ function Add.AddByInt(self: {number}, sum: number, inPlace: boolean?): {number}
 			continue
 		end
 
-		result[resultIndex] = sum
 		break
 	end
-
+	
+	result[resultIndex] = sum
 	return result
 end
 
