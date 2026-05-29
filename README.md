@@ -26,18 +26,20 @@ AptInt uses the Karatsuba and Toom-Cook3 algorithms for multiplication, Knuths a
 It also utilizes the full power of native code generation to get even faster results.
 
 # Benchmarks
+
 Note that these were done on an i7-10750H CPU. The benchmark script can be found in [/bench/](https://github.com/fosterchild1/AptInt/blob/main/bench/bench.luau).<br/>
 The results are updated every time the performance gets improved. They are also generally ~1.3x faster if running on the roblox server.<br/>
 For division, we do a 2NxN division. (2N = digit count)
 
+### Raw
 | Digit count | Addition | Subtraction | Multiplication | Division | Square root |
 | ---  | --- | --- | --- | --- | --- |
 | 1 | 1μs | 1μs | 1μs | 2μs | 29μs |
-| 50 | 1μs | 3μs | 4μs | 11μs | 6  1μs |
-| 100 | 2μs | 7μs | 6μs | 17μs | 157μs |
-| 500 | 5μs | 9μs | 56μs | 36μs | 196μs |
-| 1,000 | 7μs | 13μs | 177μs | 98μs | 468μs |
-| 5,000 | 23μs | 30μs | 2ms | 1ms | 1ms |
-| 10,000 | 57μs | 74μs | 5ms | 3ms | 2ms |
-| 50,000 | 209μs | 243μs | 67ms | 38ms | 21ms |
-| 100,000 | 389μs | 396μs | 180ms | 88ms | 49ms |
+| 50 | 1μs | 3μs | 4μs | 11μs | 31μs |
+| 100 | 2μs | 7μs | 6μs | 15μs | 73μs |
+| 500 | 5μs | 9μs | 56μs | 28μs | 250μs |
+| 1,000 | 7μs | 13μs | 173μs | 58μs | 357μs |
+| 5,000 | 23μs | 30μs | 1ms | 195μs | 796μs |
+| 10,000 | 57μs | 74μs | 4ms | 1ms | 2ms |
+| 50,000 | 209μs | 243μs | 46ms | 38ms | 35ms |
+| 100,000 | 389μs | 396μs | 137ms | 114ms | 89ms |
