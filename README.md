@@ -21,9 +21,7 @@ Usage Documentation can be found [here](https://github.com/fosterchild1/AptInt/b
 Algorithm choice can be found [here](https://github.com/fosterchild1/AptInt/blob/main/docs/algorithms.md).
 
 # What makes it so fast?
-AptInt uses the Karatsuba and Toom-Cook3 algorithms for multiplication, Knuths algorithm D for division, Karatsuba sqrt for finding the square root and more. Alongside these algorithms, it uses many techniques to shave off hundreds of milliseconds of computing time.
-
-It also utilizes the full power of native code generation to get even faster results.
+AptInt uses many asymptotically fast algorithms and dispatches between them based on input size. Alongside this, tables are recycled to their fullest potential, bringing the allocation count low. It also utilizes the full power of native code generation. This makes real use be very fast.
 
 # Benchmarks
 
