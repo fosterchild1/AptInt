@@ -25,19 +25,19 @@ AptInt uses many asymptotically fast algorithms and dispatches between them base
 
 # Benchmarks
 
-Note that these were done on an i7-10750H CPU. The benchmark script can be found in [/bench/](https://github.com/fosterchild1/AptInt/blob/main/bench/bench.luau).<br/>
-The results are updated every time the performance gets improved. They are also generally ~1.3x faster if running on the roblox server.<br/>
+Note that these were done on a Ryze 9 8940HX CPU @ 4.5GHz. The benchmark script can be found in [/bench/](https://github.com/fosterchild1/AptInt/blob/main/bench/bench.luau).<br/>
+The results are updated every time the performance gets improved.
 For division, we do a 2NxN division. (2N = digit count)
 
 ### Raw
 | Digit count | Addition | Subtraction | Multiplication | Division | Square root |
 | ---  | --- | --- | --- | --- | --- |
-| 1 | 1μs | 1μs | 1μs | 2μs | 29μs |
-| 50 | 1μs | 3μs | 4μs | 11μs | 31μs |
-| 100 | 2μs | 7μs | 6μs | 15μs | 73μs |
-| 500 | 5μs | 9μs | 56μs | 28μs | 250μs |
-| 1,000 | 7μs | 13μs | 173μs | 58μs | 357μs |
-| 5,000 | 23μs | 30μs | 1ms | 195μs | 796μs |
-| 10,000 | 57μs | 74μs | 4ms | 1ms | 2ms |
-| 50,000 | 209μs | 243μs | 46ms | 38ms | 35ms |
-| 100,000 | 389μs | 396μs | 137ms | 114ms | 89ms |
+| 1 | 27ns | 20ns | 158ns | 105ns | 9μs |
+| 50 | 400ns | 600ns | 476ns | 846ns | 27μs |
+| 100 | 500ns | 700ns | 1μs | 2μs | 73μs |
+| 500 | 2μs | 1μs | 23μs | 14μs | 143μs |
+| 1,000 | 3μs | 3μs | 111μs | 47μs | 299μs |
+| 5,000 | 11μs | 18μs | 1ms | 195μs | 796μs |
+| 10,000 | 21μs | 24μs | 3ms | 1ms | 2ms |
+| 50,000 | 102μs | 222μs | 46ms | 38ms | 28ms |
+| 100,000 | 387μs | 310μs | 122ms | 114ms | 87ms |
