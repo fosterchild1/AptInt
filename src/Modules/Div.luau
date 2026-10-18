@@ -26,8 +26,8 @@ const SubLimbs = Sub.SubLimbs
 
 const max: (number, number) -> number = math.max
 const ceil: (number) -> number = math.ceil
-const log: (number, number) -> number = math.log
 const floor: (number) -> number = math.floor
+const log: (number, number) -> number = math.log
 
 const tclone: ({number}) -> {number} = table.clone
 const tcreate: (number, number?) -> {number} = table.create
@@ -45,6 +45,7 @@ const KARATSUBA_THRESHOLD: number = Constants.KARATSUBA_THRESHOLD
 const TOOM3_THRESHOLD: number = Constants.TOOM3_THRESHOLD
 
 const BASE: number = Constants.BASE
+const INV_BASE: number = Constants.INV_BASE
 const BASE_MASK: number = Constants.BASE_MASK
 
 local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
@@ -99,8 +100,8 @@ local function DivKnuths(U: {number}, V: {number}): ({number}, {number})
 		local k: number = 0
 		for i: number = 1, n do
 			local exact: number = Un[i + j] - qhat * Vn[i] + k
-			k = exact // BASE
-
+			k = floor(exact * INV_BASE)
+			
 			Un[i + j] = exact - k * BASE
 		end
 
@@ -162,15 +163,7 @@ local function DivBZ3n2n(a1: {number}, a2: {number}, a3: {number}, b1: {number},
 		if #q == 0 then
 			D = {}
 		else
-			--> return a1a2 such that one step of mullimbs uses it
-			if n < KARATSUBA_THRESHOLD then
-				ReturnAlloc(a1a2)
-			elseif n < TOOM3_THRESHOLD then
-				ReturnAlloc(a1a2, #a1a2//4)
-			else
-				ReturnAlloc(a1a2, #a1a2//6)
-			end
-			
+			ReturnAlloc(a1a2)
 			D = Mul.MulLimbs(q, b2)
 		end
 	else -- step 3b: a1 >= b1
@@ -292,7 +285,7 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 		quotient = AddLimbs(quotient, LeftShift(qi, i*n, true), true)
 
 		z = AddLimbs(LeftShift(ri, n, true), ai1, true)
-		ReturnAlloc(qi, n//2) -- will be used inside divbz2n1n by getslice
+		ReturnAlloc(qi) -- will be used inside divbz2n1n by getslice
 		ReturnAlloc(ai1) -- will be used by next iteration ai1
 	end
 	
@@ -319,8 +312,9 @@ local function DivBurnikelZiegler(A: {number}, B: {number}): ({number}, {number}
 	return quotient, z
 end
 
---> this is needed in multiplication too
+--> these are needed in multiplication too
 Div.DivByInt = Utils.DivByInt
+Div.DivByReciprocal = Utils.DivByReciprocal
 
 function Div.DivLimbs(self: {number}, divisor: {number}): ({number}, {number})
 	local diff: number = #self - #divisor

@@ -23,6 +23,7 @@ const LeftShift = Utils.LeftShift
 const AddLimbs = Add.AddLimbs
 const SubLimbs = Sub.SubLimbs
 
+const floor: (number) -> number = math.floor
 const max: (number, number) -> number = math.max
 const min: (number, number) -> number = math.min
 
@@ -37,19 +38,11 @@ const KARATSUBA_THRESHOLD: number = Constants.KARATSUBA_THRESHOLD
 const TOOM3_THRESHOLD: number = Constants.TOOM3_THRESHOLD
 
 const BASE: number = Constants.BASE
+const INV_BASE: number = Constants.INV_BASE
 
 -- ==========
 --> FUNCTIONS
 -- ==========
-
-local function DynamicReturn(arr: {number}): ()
-	local size: number = #arr
-	if size < KARATSUBA_THRESHOLD then
-		return ReturnAlloc(arr, #arr//2) -- karatsuba splits in halves
-	end
-	
-	ReturnAlloc(arr, #arr//3) -- toom cook splits in thirds
-end
 
 function Mul.MulByInt(self: {number}, num: number): {number}
 	local result: {number} = Utils.GetAlloc(#self, self)
@@ -58,7 +51,7 @@ function Mul.MulByInt(self: {number}, num: number): {number}
 	for i: number, limb: number in self do
 		local product: number = limb * num + carry
 
-		carry = product // BASE
+		carry = floor(product * INV_BASE)
 		result[i] = product % BASE
 	end
 
@@ -154,8 +147,8 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	da1 = AddLimbs(da1, x1, true)
 	db1 = AddLimbs(db1, y1, true)
 
-	DynamicReturn(x1); DynamicReturn(y1)
-	DynamicReturn(vm1lhs); DynamicReturn(vm1rhs)
+	ReturnAlloc(x1); ReturnAlloc(y1)
+	ReturnAlloc(vm1lhs); ReturnAlloc(vm1rhs)
 	local v0: {number} = Mul.MulLimbs(x0, y0)
 	local v1: {number} = Mul.MulLimbs(da1, db1)
 	
@@ -165,22 +158,22 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	local v2: {number} = SubLimbs(AddLimbs(da1, da1, true), x0, true)
 	v2 = Mul.MulLimbs(v2, SubLimbs(AddLimbs(db1, db1, true), y0, true))
 	
-	DynamicReturn(da1); DynamicReturn(db1)
-	DynamicReturn(x0); DynamicReturn(y0)
+	ReturnAlloc(da1); ReturnAlloc(db1)
+	ReturnAlloc(x0); ReturnAlloc(y0)
 	local vinf: {number} = Mul.MulLimbs(x2, y2)
 	
 	--> all divisions here are single-limb, so they are linear.
 	v2 = (vm1neg and AddLimbs(v2, vm1, true) or SubLimbs(v2, vm1, true))
 	local tm1: {number} = vm1neg and AddLimbs(v1, vm1) or SubLimbs(v1, vm1)
-	Utils.DivByInt(v2, 3, true)
-	Utils.DivByInt(tm1, 2, true)
+	Utils.DivByReciprocal(v2, 3, true)
+	Utils.DivByReciprocal(tm1, 2, true)
 	
 	v1 = SubLimbs(v1, v0, true)
 	
 	ReturnAlloc(vm1)
 	local vinf2: {number} = AddLimbs(vinf, vinf)
 	
-	Utils.DivByInt(SubLimbs(v2, v1, true), 2, true)
+	Utils.DivByReciprocal(SubLimbs(v2, v1, true), 2, true)
 	v1 = SubLimbs(SubLimbs(v1, tm1, true), vinf, true)
 	v2 = SubLimbs(v2, vinf2, true)
 	tm1 = SubLimbs(tm1, v2, true)
@@ -190,13 +183,13 @@ local function MulToom3(x: {number}, y: {number}): {number}
 	result = AddLimbs(result, v2, true)
 	
 	LeftShift(result, k, true)
-	AddLimbs(result, v1, true)
+	result = AddLimbs(result, v1, true)
 	
 	LeftShift(result, k, true)
-	AddLimbs(result, tm1, true)
+	result = AddLimbs(result, tm1, true)
 	
 	LeftShift(result, k, true)
-	AddLimbs(result, v0, true)
+	result = AddLimbs(result, v0, true)
 	
 	--> inside toomcook3, all mullimbs are placed right after eachother
 	--> these will be reused by getslice and adds/subs in next toomcook3 call

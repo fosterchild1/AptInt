@@ -1,7 +1,4 @@
---!native
---!optimize 2
-
-local aptint = require(game.ReplicatedStorage.AptInt)
+local aptint = require(game.ReplicatedStorage.AptInt.AptInt)
 
 type AptInt = aptint.AptInt
 
@@ -14,6 +11,10 @@ local LOG2_10: number = 3.32192809489
 
 local digits: {number} = {1, 50, 100, 500, 1_000, 5_000, 10_000, 50_000, 100_000}
 --local digits: {number} = {100_000}
+
+local function TimeToMillis(t: number): number
+	return string.format("%.5fms", t*1000)
+end
 
 local function BuildRandomNum(digitCount: number): AptInt
 	if digitCount <= 1 then
@@ -51,23 +52,34 @@ local function BenchFunc(name: string, fn: (AptInt, AptInt) -> ()): ()
 		if isSqrt then
 			int1.signum = 1
 		end
-
-		start = clock()
-		fn(int1, int2)
-		print(`Took {clock()-start} to run {name} with {digitCount} digits`)
+		
+		local iters: number = (digitCount < 5000 and 150 or 15)
+		
+		local times: {number} = {}
+		for i: number = 1, iters do
+			start = clock()		
+			fn(int1, int2)
+			insert(times, clock()-start)
+		end
+		
+		local avgTime = 0; for i, v in times do avgTime += v end; avgTime /= iters
+		
+		print(`Took M: {TimeToMillis(times[iters//2])} | A: {TimeToMillis(avgTime)} to run {name} with {digitCount} digits`)
 
 		task.wait(0.25)
 	end
 end
 
+--[[
 BenchFunc("addBench", function(int1: AptInt, int2: AptInt)
 	int1:AddRaw(int2)
 end)
 
 BenchFunc("subBench", function(int1: AptInt, int2: AptInt)
 	int1:SubtractRaw(int2)
-end)
+end)]]
 
+task.wait(5)
 BenchFunc("mulBench", function(int1: AptInt, int2: AptInt)
 	int1:MultiplyRaw(int2)
 end)

@@ -50,7 +50,7 @@ local function BinarySearchSqrt(n: {number}) : {number}
 
 	while Cmp.LowerOrEqualTo(low, high) do
 		local mid: {number} = AddLimbs(low, high)
-		Div.DivByInt(mid, 2, true)
+		Div.DivByReciprocal(mid, 2, true)
 
 		local sq: {number} = Mul.MulLimbs(mid, mid)
 		local comparison: number = Cmp.Compare(sq, n)
@@ -76,7 +76,7 @@ local function NewtonHeronSqrt(n: {number}): {number}
 
 	while true do
 		local q: {number}, _: {number} = Div.DivLimbs(n, prev1)
-		local x1: {number} = Div.DivByInt(AddLimbs(prev1, q), 2, true)
+		local x1: {number} = Div.DivByReciprocal(AddLimbs(prev1, q), 2, true)
 		
 		if Cmp.Equals(x1, prev1) then
 			return x1
@@ -131,13 +131,7 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 	
 	--> return a3a2 such that one step of mullimbs uses it
 	local qLen: number = #q
-	if qLen < KARATSUBA_THRESHOLD then
-		ReturnAlloc(a3a2)
-	elseif qLen < TOOM3_THRESHOLD then
-		ReturnAlloc(a3a2, #a3a2//4)
-	else
-		ReturnAlloc(a3a2, #a3a2//6)
-	end
+	ReturnAlloc(a3a2)
 	local qSquared: {number} = Mul.MulLimbs(q, q)
 	
 	local willCorrect: boolean = Cmp.LowerThan(r, qSquared) -- if r will be negative
@@ -152,6 +146,7 @@ local function KaratsubaSqrt(n: {number}): ({number}, {number})
 		
 		ReturnAlloc(s2)
 	end
+	
 	return s, r 
 end
 

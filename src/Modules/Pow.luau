@@ -32,7 +32,7 @@ function Pow.PowLimbs(limbs: {number}, exp: {number}): {number}
 		end
 
 		limbs = Mul.MulLimbs(limbs, limbs)
-		Div.DivByInt(exp, 2, true)
+		Div.DivByReciprocal(exp, 2, true)
 	end
 	
 	return result

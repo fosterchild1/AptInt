@@ -6,6 +6,7 @@ local Utils = {}
 
 local Constants = require("../Constants")
 
+const floor: (number) -> number = math.floor
 const ceil: (number) -> number = math.ceil
 const max: (number, number) -> number = math.max 
 const abs: (number) -> number = math.abs
@@ -14,64 +15,66 @@ const tinsert: ({{number}}, {number}) -> () = table.insert
 const tcreate: (number, number) -> {number} = table.create
 const tclone: ({number}) -> {number} = table.clone
 const tmove: ({number}, number, number, number, {number}) -> {number} = table.move
-const tclear: ({{number}}) -> () = table.clear
+const tclear: ({any}) -> () = table.clear
 
 const BASE: number = Constants.BASE
 const ALLOC_MIN_SIZE: number = Constants.ALLOC_MIN_SIZE
 const ALLOC_POOL_SIZE: number = Constants.ALLOC_POOL_SIZE
+const ALLOC_POOL_MAX_ENTRIES: number = Constants.ALLOC_POOL_MAX_ENTRIES
 
-const ZEROS: {number} = tcreate(240_000, 0)
-const EMPTY: {} = {}
+const ZEROS: {number} = tcreate(300_000, 0)
+const EMPTY: {number} = {}
 
 local tblPools: {{{number}}} = {}
-for i: number = 1, 240_000//ALLOC_POOL_SIZE do
-	tinsert(tblPools, {})
-end
-
-local function CleanPool()
-	for _: number, tbl: {{number}} in tblPools do
-		tclear(tbl)
-	end
-end
-
-function Utils.GetAlloc(size: number, fallback: {number}?): {number}
-	size = max(size, 0) -- sometimes size can be negative from getslice
-	local pool: {{number}} = tblPools[ceil(size / ALLOC_POOL_SIZE)]
+for i: number = 1, 300_000//ALLOC_POOL_SIZE do
+	local pool: {{number}} = tcreate(ALLOC_POOL_MAX_ENTRIES)
 	
-	if size < ALLOC_MIN_SIZE or #pool == 0 then
+	--> initialize it with a small pool of tables
+	if i <= 128 then
+		for _: number = 1, ALLOC_POOL_MAX_ENTRIES/2 do
+			tinsert(pool, tcreate(i * ALLOC_POOL_SIZE, 0))
+		end
+	end
+	
+	tinsert(tblPools, pool)
+end
+
+function Utils.GetAlloc(size: number, fallback: {number}?, ctx): {number}
+	size = max(size, 0)
+	
+	if size < ALLOC_MIN_SIZE then
 		if fallback then return tclone(fallback) end
 		return tcreate(size, 0)
 	end
 	
-	local extTbl: {number} = pool[#pool]
-	local tblLen: number = #extTbl
-	pool[#pool] = nil
+	local idx: number = ceil(size / ALLOC_POOL_SIZE)
+	local pool: {{number}} = tblPools[idx]
+	local numTbls: number = pool and #pool or 0
 	
-	--> correct its size
-	if tblLen > size then
-		for j: number = size + 1, tblLen do
-			extTbl[j] = nil
-		end
-		return extTbl
+	--> if pool is empty, try the next one
+	if numTbls == 0 then
+		pool = tblPools[idx + 1]
+		numTbls = #pool
 	end
+	
+	if numTbls > 0 then
+		local extTbl: {number} = pool[numTbls]
+		pool[numTbls] = nil
 		
-	--> too small, for equal sizes it doesnt run
-	for j: number = tblLen + 1, size do
-		extTbl[j] = 0
+		if #extTbl == size then return extTbl end -- no change needed
+		tclear(extTbl)
+		return tmove(ZEROS, 1, size, 1, extTbl)
 	end
-		
-	return extTbl
+	
+	return tcreate(size, 0)
 end
 
-function Utils.ReturnAlloc(alloc: {number}, resize: number?): ()
+function Utils.ReturnAlloc(alloc: {number}): ()
 	local size: number = #alloc
 	if size < ALLOC_MIN_SIZE then return end
-	
+
 	local pool: {{number}} = tblPools[ceil(size / ALLOC_POOL_SIZE)]
-	if resize then
-		local amount: number = resize - size
-		tmove(EMPTY, 1, amount, amount + 1, alloc)
-	end
+	if not pool or #pool >= ALLOC_POOL_MAX_ENTRIES then return end
 	
 	tinsert(pool, alloc)
 end
@@ -120,7 +123,7 @@ end
 
 function Utils.DivByInt(limbs: {number}, div: number, inPlace: boolean?): ({number}, {number})
 	local quotient: {number} = (inPlace and limbs or Utils.GetAlloc(#limbs, limbs))
-
+	
 	local carry: number = 0
 	for i: number = #limbs, 1, -1 do
 		local x: number = limbs[i] + carry * BASE
@@ -138,11 +141,26 @@ function Utils.DivByInt(limbs: {number}, div: number, inPlace: boolean?): ({numb
 	return quotient, {carry}
 end
 
---> UGLY: rebuild pool every once in a while to avoid super high memory
-task.spawn(function()
-	while task.wait(60) do
-		CleanPool()
+
+function Utils.DivByReciprocal(limbs: {number}, div: number, inPlace: boolean?): ({number}, {number})
+	local quotient: {number} = (inPlace and limbs or Utils.GetAlloc(#limbs, limbs))
+
+	local invDiv: number = 1/div
+	local carry: number = 0
+	for i: number = #limbs, 1, -1 do
+		local x: number = limbs[i] + carry * BASE
+		local qDigit: number = floor(x * invDiv)
+
+		carry = x - qDigit * div
+		quotient[i] = qDigit
 	end
-end)
+
+	Utils.StripLeadingZeros(quotient)
+	if carry == 0 then
+		return quotient, {}
+	end
+
+	return quotient, {carry}
+end
 
 return Utils

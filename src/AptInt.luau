@@ -73,11 +73,11 @@ local typeConstructors: {[string]: (any) -> ({number}, number)} = {
 		end
 
 		local actualSign: number = sign(num)
-		num = abs(num)
+		num = floor(abs(num))
 
 		local arr: {number} = {}
 		while num > 0 do
-			tinsert(arr, floor(num % BASE))
+			tinsert(arr, num % BASE)
 			num //= BASE
 		end
 
@@ -126,7 +126,11 @@ local function ArgumentToAptInt(num: ValidMetamethodArgument?, errContext: strin
 		error(`attempt to perform arithmetic ({errContext}) on AptInt and {numType}`)
 	end
 	
-	return AptInt.new(num)
+	local limbs: {number}, signum: number = constructor(num)
+	return setmetatable({
+		limbs = limbs,
+		signum = signum
+	}, AptInt :: AptInt) :: AptInt
 end
 
 local function NegateRef(n: AptInt): AptInt
@@ -265,7 +269,7 @@ function AptInt:SubtractRaw(term: AptInt, inPlace: boolean?): AptInt
 end
 
 -- Returns an AptInt equal to <code>a * b</code>.
-function AptInt:MultiplyRaw(factor: AptInt, i: boolean?): AptInt
+function AptInt:MultiplyRaw(factor: AptInt): AptInt
 	local selfSign: number, factorSign: number = self.signum, factor.signum
 
 	--> CASES
@@ -292,14 +296,15 @@ end
 function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	local divSign: number, selfSign: number = divisor.signum, self.signum
 	local sameSign: boolean = divSign == selfSign
-
-	local U: {number}, V: {number} = self.limbs, divisor.limbs
 	
 	--> CASES
-	local comparison: number = Cmp.Compare(U, V)
-	if divSign == 0 or selfSign == 0 then -- dividing by 0
+	local U: {number}, V: {number} = self.limbs, divisor.limbs
+	if divSign == 0 or selfSign == 0 then -- division by 0
 		return FromLimbs({}), FromLimbs({})
-	elseif comparison == -1 then -- U < V
+	end
+	
+	local comparison: number = Cmp.Compare(U, V)
+	if comparison == -1 then -- U < V
 		if selfSign == 1 and divSign == -1 then
 			return AP_NEG_ONE:clone(), divisor:AddRaw(self)
 		elseif selfSign == -1 and divSign == 1 then
@@ -315,7 +320,6 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 	end
 	
 	local quotientLimbs: {number}, remLimbs: {number}
-	
 	if #V == 1 then -- single limb division
 		quotientLimbs, remLimbs = Div.DivByInt(U, V[1])
 	else
@@ -330,7 +334,7 @@ function AptInt:DivideRaw(divisor: AptInt): (AptInt, AptInt)
 		Add.AddByInt(quotient.limbs, 1, true)
 	end
 
-	quotient.signum = selfSign / divSign
+	quotient.signum = sameSign and 1 or -1
 	return quotient, remainder
 end
 
@@ -342,7 +346,7 @@ function AptInt:ModRaw(div: AptInt): AptInt
 	local selfSign: number, divSign: number = self.signum, div.signum
 
 	--> CASES
-	if divLen == 0 or #selfLimbs == 0 or divSign == 0 then
+	if divSign == 0 or selfSign == 0 then
 		return FromLimbs({})
 	end
 
@@ -356,7 +360,7 @@ function AptInt:ModRaw(div: AptInt): AptInt
 	
 	--> 2^k mod fast paths
 	if divLen == 1 and selfSign == 1 and divSign == 1 then
-		local exp: number = math.log(divFirst, 2)
+		local exp: number = log(divFirst, 2)
 		if floor(exp) == exp then
 			return AptInt.new(bband(selfLimbs[1], divFirst-1))
 		end
@@ -370,7 +374,9 @@ end
 function AptInt:PowRaw(pow: AptInt): AptInt
 	local selfSign: number, powSign: number = self.signum, pow.signum
 	local selfLimbs: {number}, powLimbs: {number} = self.limbs, pow.limbs
-	local oddPow: boolean = #powLimbs > 0 and powLimbs[1] % 2 == 1
+	
+	local powLen: number = #powLimbs
+	local oddPow: boolean = powLen > 0 and powLimbs[1] % 2 == 1
 	
 	--> CASES
 	if powSign ~= 1 then
@@ -379,7 +385,7 @@ function AptInt:PowRaw(pow: AptInt): AptInt
 		return FromLimbs({})
 	end
 
-	if #powLimbs == 1 and powLimbs[1] == 1 then
+	if powLen == 1 and powLimbs[1] == 1 then
 		return self:clone()
 	elseif #selfLimbs == 1 and selfLimbs[1] == 1 then
 		local unit: AptInt = FromLimbs({1})
@@ -391,7 +397,7 @@ function AptInt:PowRaw(pow: AptInt): AptInt
 	end
 
 	local resultLimbs: {number}
-	if #powLimbs == 1 then -- single-limb exponentiation
+	if powLen == 1 then -- single-limb exponentiation
 		resultLimbs =  Pow.PowByInt(selfLimbs, powLimbs[1])
 	else
 		resultLimbs = Pow.PowLimbs(selfLimbs, tclone(powLimbs))

@@ -1,5 +1,6 @@
 const constants = {
 	BASE = 2^24,
+	INV_BASE = 1/(2^24),
 	BASE_MASK = 16777215, -- BASE - 1 (=0xffffff)
 
 	RADIX_LEN_CONST = 7.224719895935548, -- log10(BASE)
@@ -8,7 +9,8 @@ const constants = {
 	MAX_TONUMBER_LEN = 43, -- min{k | BASE^k > 2^1024-1}
 	
 	ALLOC_MIN_SIZE = 17,
-	ALLOC_POOL_SIZE = 32,
+	ALLOC_POOL_MAX_ENTRIES = 64,
+	ALLOC_POOL_SIZE = 128,
 	
 	--> algorithm thresholds (size in limbs)
 	FAST_TOSTRING_THRESHOLD = 2200,
@@ -17,7 +19,7 @@ const constants = {
 	SQRT_NEWTON_THRESHOLD = 19,
 	
 	KARATSUBA_THRESHOLD = 45,
-	TOOM3_THRESHOLD = 90,
+	TOOM3_THRESHOLD = 450,
 	
 	BURNIKEL_THRESHOLD = 280,
 	MIN_BURNIKEL_OFFSET = 40,
