@@ -26,7 +26,7 @@ AptInt uses many asymptotically fast algorithms and dispatches between them base
 # Benchmarks
 
 Note that these were done on a Ryze 9 8940HX CPU @ 4.5GHz. The benchmark script can be found in [/bench/](https://github.com/fosterchild1/AptInt/blob/main/bench/bench.luau).<br/>
-The results are updated every time the performance gets improved.
+The results are updated every time the performance gets improved.<br/>
 For division, we do a 2NxN division. (2N = digit count)
 
 ### Raw
